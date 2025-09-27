@@ -1,0 +1,29 @@
+# CloudSync rclone configuration template
+# Copy to ~/.config/rclone/rclone.conf and customize
+
+[onedrive]
+type = onedrive
+client_id = YOUR_CLIENT_ID
+client_secret = YOUR_CLIENT_SECRET
+drive_id = YOUR_DRIVE_ID
+drive_type = personal
+
+[backup-remote]
+type = onedrive
+client_id = YOUR_CLIENT_ID
+client_secret = YOUR_CLIENT_SECRET
+drive_id = YOUR_DRIVE_ID
+drive_type = personal
+
+# Additional cloud providers can be configured here
+# [dropbox]
+# type = dropbox
+# client_id = YOUR_DROPBOX_CLIENT_ID
+# client_secret = YOUR_DROPBOX_CLIENT_SECRET
+
+# [s3]
+# type = s3
+# provider = AWS
+# region = us-east-1
+# access_key_id = YOUR_ACCESS_KEY
+# secret_access_key = YOUR_SECRET_KEY
