@@ -32,6 +32,30 @@ Ideas captured from conversations, feedback, brainstorming - needs evaluation
 **Original Context:** End-to-end encryption for sensitive data during cloud sync
 **Submitter Notes:** Important for security but may impact performance
 
+#### Smart Deduplication
+**Source:** User request for advanced features
+**Date Added:** 2025-09-27
+**Original Context:** Intelligent file deduplication using rclone dedupe with hash-based detection
+**Submitter Notes:** rclone has built-in dedupe capabilities, could reduce storage usage significantly
+
+#### Incremental Merge Capabilities
+**Source:** User request for advanced features
+**Date Added:** 2025-09-27
+**Original Context:** Advanced merge strategies for files that can be incrementally combined (logs, configurations)
+**Submitter Notes:** Would need custom logic beyond rclone's basic sync capabilities
+
+#### Checksum Verification System
+**Source:** User request for advanced features
+**Date Added:** 2025-09-27
+**Original Context:** Automated integrity checking using rclone check with MD5/SHA1 verification
+**Submitter Notes:** rclone check provides built-in verification, could automate this process
+
+#### Delta Sync Optimization
+**Source:** User request for advanced features
+**Date Added:** 2025-09-27
+**Original Context:** Optimize sync operations to transfer only changed portions of files
+**Submitter Notes:** rclone already does basic delta sync by checking size/modification time, but could enhance with rsync-style chunking
+
 ### 📊 Under Evaluation
 Features being scored against evaluation criteria
 
@@ -73,6 +97,47 @@ Features being scored against evaluation criteria
 **Research Needed:**
 - [ ] rclone bandwidth management capabilities
 - [ ] Common bandwidth usage patterns
+
+#### Smart Deduplication
+**Status:** Under Evaluation
+**Evaluation Started:** 2025-09-27
+
+**Description:** Intelligent file deduplication using rclone dedupe with hash-based detection to eliminate duplicate files
+**User Story:** As a user with limited storage, I want automatic deduplication so that I don't waste space on identical files
+
+**Evaluation Scores:**
+- **User Impact:** 4/5 - Significantly reduces storage usage and sync time
+- **Reliability Value:** 4/5 - Prevents sync conflicts from duplicate files
+- **Technical Effort:** 2/5 - rclone dedupe is built-in, just need automation
+- **Strategic Alignment:** 4/5 - Aligns with intelligent sync optimization
+- **Total Score:** 14/20
+
+**Research Needed:**
+- [x] rclone dedupe capabilities confirmed (supports hash-based detection)
+- [ ] Best practices for automated deduplication scheduling
+- [ ] Impact on sync performance
+
+**Stakeholder Input:**
+- **Developer (self):** High value for development environment with many similar files
+
+#### Checksum Verification System
+**Status:** Under Evaluation
+**Evaluation Started:** 2025-09-27
+
+**Description:** Automated integrity checking using rclone check with MD5/SHA1 verification and reporting
+**User Story:** As a user concerned about data integrity, I want automated verification so that I know my synced files are not corrupted
+
+**Evaluation Scores:**
+- **User Impact:** 3/5 - Peace of mind but not daily workflow impact
+- **Reliability Value:** 5/5 - Critical for data integrity assurance
+- **Technical Effort:** 2/5 - rclone check is built-in, need automation and reporting
+- **Strategic Alignment:** 4/5 - Essential for reliable sync system
+- **Total Score:** 14/20
+
+**Research Needed:**
+- [x] rclone check capabilities confirmed (MD5/SHA1 support)
+- [ ] Performance impact of regular checksum verification
+- [ ] Integration with health monitoring system
 
 ### ✅ Evaluated (Ready for Planning)
 Features with complete evaluation, ready for roadmap consideration
@@ -143,10 +208,16 @@ Organize features by type for easier navigation
 Quick capture of interesting ideas mentioned in Claude conversations
 
 **2025-09-27 - CloudSync Project Creation:**
-- Smart deduplication mentioned - need to research rclone's capabilities
-- Incremental syncing discussed - already supported by rclone
+- Smart deduplication mentioned - rclone's capabilities researched ✅
+- Incremental syncing discussed - already supported by rclone ✅
 - Conflict resolution strategies - manual vs automatic approaches
 - Real-time monitoring with inotify - performance considerations
+
+**2025-09-27 - Advanced Features Discussion:**
+- Merge capabilities for incremental file updates (logs, configs)
+- Checksum verification for data integrity assurance
+- Delta sync optimization beyond basic rclone capabilities
+- Automated deduplication scheduling and reporting
 
 ## Links
 - **[ROADMAP.md](./ROADMAP.md)** - Current strategic roadmap (Q4 2025 focus)

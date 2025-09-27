@@ -49,18 +49,30 @@
   - **Effort:** S (Small - metrics collection)
   - **Status:** Not Started
 
+- **Smart Deduplication** - Automated duplicate file detection and removal
+  - **Value:** Storage optimization, reduced sync overhead
+  - **Effort:** S (Small - rclone dedupe automation)
+  - **Status:** Under Evaluation
+
+- **Checksum Verification System** - Automated integrity checking for all synced files
+  - **Value:** Data integrity assurance, corruption detection
+  - **Effort:** S (Small - rclone check automation)
+  - **Status:** Under Evaluation
+
 #### Low Priority Features (Could Have)
 - **Web Dashboard** - Browser-based monitoring interface
 - **Multi-cloud Support** - Support for additional cloud providers beyond OneDrive
+- **Delta Sync Optimization** - Enhanced rsync-style chunking for large files
 
 ### Q1 2026 (Next Quarter)
 **Planned Theme:** "Advanced Features & Reliability"
 
 #### Tentative Features
 - **Selective Sync Profiles** - Configurable sync profiles for different scenarios
-- **Bandwidth Management** - Network usage optimization and throttling
+- **Incremental Merge Capabilities** - Advanced merge strategies for log files and configurations
 - **Advanced Backup Strategies** - Enhanced Restic integration with automated retention
 - **Encrypted Sync** - End-to-end encryption for sensitive data
+- **Bandwidth Management** - Network usage optimization and throttling
 - **API Integration** - REST API for external system integration
 
 ## Feature Evaluation Criteria
