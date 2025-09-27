@@ -267,6 +267,12 @@ process_results() {
     local error_files=0
 
     # Parse output for statistics
+    matched_files=0
+    differ_files=0
+    missing_src=0
+    missing_dst=0
+    error_files=0
+
     if echo "$output" | grep -q "files matched"; then
         matched_files=$(echo "$output" | grep "files matched" | awk '{print $1}')
     fi
