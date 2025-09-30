@@ -234,6 +234,16 @@ rm "/tmp/rebuild-instructions-$TIMESTAMP.md"
         echo "📊 Data synced: ~50-100MB (vs 20GB+ for full sync)"
         echo "⏱️  Total time: $(date)"
         echo ""
+
+        # Generate change report
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        REPORT_SCRIPT="$SCRIPT_DIR/../monitoring/generate-sync-report.sh"
+        if [ -f "$REPORT_SCRIPT" ]; then
+            echo "📊 Generating sync change report..."
+            "$REPORT_SCRIPT"
+        fi
+
+        echo ""
         echo "🚀 Next steps:"
         echo "1. On Device B: run: ~/scripts/cloud/dev-env-sync.sh pull"
         echo "2. Rebuild environment in ~30 minutes vs 2+ hours"
