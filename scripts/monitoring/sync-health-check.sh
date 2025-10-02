@@ -191,6 +191,51 @@ check_advanced_features() {
     fi
 }
 
+# Check real-time monitoring status
+check_realtime_monitoring() {
+    echo -n "👁️ Checking real-time monitoring... "
+
+    local monitor_status_file="$HOME/.cloudsync/monitor-status.json"
+    local auto_sync_stats="$HOME/.cloudsync/auto-sync-stats.json"
+
+    if [[ -f "$monitor_status_file" ]]; then
+        local status message last_update
+        status=$(jq -r '.status' "$monitor_status_file" 2>/dev/null || echo "unknown")
+        message=$(jq -r '.message' "$monitor_status_file" 2>/dev/null || echo "")
+        last_update=$(jq -r '.last_update' "$monitor_status_file" 2>/dev/null || echo "")
+
+        case "$status" in
+            "monitoring")
+                log_message "${GREEN}✅ Real-time monitoring: ACTIVE${NC}"
+                log_message "${BLUE}   Status: $message${NC}"
+                log_message "${BLUE}   Last update: $last_update${NC}"
+
+                # Check for auto-sync statistics
+                if [[ -f "$auto_sync_stats" ]]; then
+                    local total_syncs successful_syncs
+                    total_syncs=$(jq -r '.total_syncs // 0' "$auto_sync_stats" 2>/dev/null)
+                    successful_syncs=$(jq -r '.successful_syncs // 0' "$auto_sync_stats" 2>/dev/null)
+                    local success_rate=0
+                    if [[ $total_syncs -gt 0 ]]; then
+                        success_rate=$(echo "scale=1; $successful_syncs * 100 / $total_syncs" | bc -l 2>/dev/null || echo "0")
+                    fi
+                    log_message "${BLUE}   Auto-syncs: $successful_syncs/$total_syncs (${success_rate}% success)${NC}"
+                fi
+                ;;
+            "stopped")
+                log_message "${YELLOW}⚠️ Real-time monitoring: STOPPED${NC}"
+                log_message "${BLUE}   Reason: $message${NC}"
+                ;;
+            *)
+                log_message "${RED}❌ Real-time monitoring: UNKNOWN STATUS${NC}"
+                ;;
+        esac
+    else
+        log_message "${YELLOW}⚠️ Real-time monitoring: NOT CONFIGURED${NC}"
+        log_message "${BLUE}   Status file not found: $monitor_status_file${NC}"
+    fi
+}
+
 # Check feature usage statistics
 check_feature_stats() {
     echo -n "📊 Checking feature usage stats... "
@@ -260,6 +305,7 @@ main() {
     check_disk_space
     check_backup_status
     check_advanced_features
+    check_realtime_monitoring
     check_feature_stats
 
     echo
