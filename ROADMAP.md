@@ -1,54 +1,86 @@
 # CloudSync Product Roadmap
-**Status:** ACTIVE
+**Status:** ACTIVE - ARCHITECTURE EVOLUTION
 **Created:** 2025-09-27
-**Last Updated:** 2025-09-27
-**Planning Horizon:** Next 3-6 months
+**Last Updated:** 2025-10-03
+**Planning Horizon:** Next 6-12 months (expanded for orchestrator development)
 **Current Quarter:** Q4 2025
 
-## Strategic Vision
-**Product Vision:** Comprehensive, reliable cloud synchronization system with real-time monitoring, conflict resolution, and automated backup capabilities for development environments and critical data.
+## Strategic Vision 2.0 (Updated)
+**Product Vision:** Intelligent cloud storage orchestrator that coordinates Git, Git-Annex, and rclone for optimal workflows with unified versioning, smart tool selection, and seamless multi-device synchronization.
 
-**Current Focus:** Transform from basic unidirectional sync to intelligent bidirectional synchronization with conflict resolution and real-time monitoring.
+**Current Focus:** Evolution from sync tool to intelligent orchestrator with unified interface and Git-based versioning for all file types.
 
 ## Roadmap Timeline
 
-### Q4 2025 (Current Quarter)
-**Theme:** "Intelligent Sync Foundation"
-**Success Metrics:** ✅ ACHIEVED
+### Q4 2025 (Current Quarter) - THEME EVOLVED
+**Original Theme:** "Intelligent Sync Foundation" ✅ ACHIEVED
+**New Theme:** "Orchestrator Architecture Development" 🚧 IN PROGRESS
+**Foundation Success Metrics:** ✅ ACHIEVED
 - ✅ Bidirectional sync operational with comprehensive conflict resolution
 - ✅ Smart deduplication reducing storage overhead
 - ✅ 100% feature implementation with dry-run testing validation
 - ✅ Comprehensive documentation and troubleshooting support
+- ✅ Git-Annex integration with OneDrive via rclone
 
-#### High Priority Features (Must Have) - ✅ COMPLETED
+**NEW Orchestrator Success Metrics:** 🎯 CURRENT GOALS
+- [ ] Intelligent orchestrator with decision engine operational
+- [ ] Unified interface (cloudsync commands) implemented
+- [ ] Git-based versioning for all file types
+- [ ] Managed storage structure with multi-tool coordination
+
+#### Foundation Features - ✅ COMPLETED
 - **✅ Bidirectional Sync with rclone bisync** - Enable two-way synchronization
   - **Value:** Eliminates manual conflict resolution, enables multi-device workflows
-  - **Effort:** L (Large - complex rclone integration)
-  - **Dependencies:** rclone bisync feature stability
   - **Status:** ✅ Complete - Full implementation with conflict resolution
 
 - **✅ Conflict Detection & Resolution** - Automatic conflict detection with resolution strategies
-  - **Value:** Prevents data loss, reduces manual intervention
-  - **Effort:** M (Medium - logic implementation)
-  - **Dependencies:** Bidirectional sync foundation
+  - **Value:** Prevents data loss, reduces manual intervention  
   - **Status:** ✅ Complete - Interactive and automated resolution
 
-- **Real-time File Monitoring** - inotify-based automatic sync triggers
-  - **Value:** Immediate sync response, improved workflow efficiency
-  - **Effort:** M (Medium - system integration)
-  - **Dependencies:** System inotify support
-  - **Status:** Planned for Q1 2026
+- **✅ Git-Annex Integration** - Large file management with versioning
+  - **Value:** Efficient large file storage with OneDrive, 14x cheaper than GitHub LFS
+  - **Status:** ✅ Complete - Full OneDrive integration via rclone
 
-#### Medium Priority Features (Should Have)
+#### NEW High Priority Features (Must Have) - Orchestrator Layer
+- **🚧 Intelligent Decision Engine** - Smart tool selection based on context
+  - **Value:** Optimal performance, unified user experience
+  - **Effort:** L (Large - complex logic and integration)
+  - **Dependencies:** Context detection, tool integration
+  - **Status:** 25% Complete - Design phase
+
+- **🚧 Unified Interface** - Single command interface for all operations
+  - **Value:** Simplified user experience, consistent behavior
+  - **Effort:** M (Medium - interface design and routing)
+  - **Dependencies:** Decision engine, tool integration
+  - **Status:** 25% Complete - Design phase
+
+- **🚧 Managed Storage System** - Git-based versioning for all file types
+  - **Value:** Universal versioning, consistent rollback capabilities
+  - **Effort:** L (Large - storage architecture and migration)
+  - **Dependencies:** Git repository structure, tool coordination
+  - **Status:** 25% Complete - Design phase
+
+#### Medium Priority Features (Should Have) - ✅ COMPLETED
 - **✅ Smart Deduplication** - Automated duplicate file detection and removal
   - **Value:** Storage optimization, reduced sync overhead
-  - **Effort:** S (Small - rclone dedupe automation)
   - **Status:** ✅ Complete - Hash-based and name-based deduplication
 
 - **✅ Checksum Verification System** - Automated integrity checking for all synced files
   - **Value:** Data integrity assurance, corruption detection
-  - **Effort:** S (Small - rclone check automation)
   - **Status:** ✅ Complete - MD5/SHA1 verification with JSON reporting
+
+#### NEW Medium Priority Features - Orchestrator Enhancement
+- **📋 Advanced Versioning Commands** - Rich version history and rollback capabilities
+  - **Value:** Powerful version management across all file types
+  - **Effort:** M (Medium - Git integration and interface design)
+  - **Dependencies:** Managed storage system
+  - **Status:** Planned for Q1 2026
+
+- **📋 Multi-Tool Monitoring Dashboard** - Unified status across Git/Git-annex/rclone
+  - **Value:** Centralized monitoring, better troubleshooting
+  - **Effort:** M (Medium - dashboard development)
+  - **Dependencies:** Orchestrator core
+  - **Status:** Planned for Q1 2026
 
 - **Comprehensive Testing Framework** - Automated testing for sync scenarios
   - **Value:** Reliability assurance, regression prevention
@@ -65,16 +97,39 @@
 - **Multi-cloud Support** - Support for additional cloud providers beyond OneDrive
 - **Delta Sync Optimization** - Enhanced rsync-style chunking for large files
 
-### Q1 2026 (Next Quarter)
-**Planned Theme:** "Advanced Features & Reliability"
+### Q1 2026 (Next Quarter) - UPDATED PRIORITIES
+**New Theme:** "Advanced Orchestrator Features & Optimization"
+**Success Metrics:**
+- [ ] Real-time monitoring with inotify integration
+- [ ] Advanced versioning commands (branch, merge, advanced rollback)
+- [ ] Performance optimization and analytics
+- [ ] Multi-cloud provider foundation
 
-#### Tentative Features
-- **Selective Sync Profiles** - Configurable sync profiles for different scenarios
-- **Incremental Merge Capabilities** - Advanced merge strategies for log files and configurations
-- **Advanced Backup Strategies** - Enhanced Restic integration with automated retention
-- **Encrypted Sync** - End-to-end encryption for sensitive data
-- **Bandwidth Management** - Network usage optimization and throttling
-- **API Integration** - REST API for external system integration
+#### High Priority Features (Orchestrator Enhancement)
+- **📋 Real-time File Monitoring** - inotify-based automatic sync triggers
+  - **Value:** Immediate sync response, improved workflow efficiency
+  - **Effort:** M (Medium - system integration)
+  - **Dependencies:** Orchestrator core
+  - **Status:** Moved from Q4 2025
+
+- **📋 Advanced Versioning Interface** - Rich Git-based operations
+  - **Value:** Full version control capabilities (branch, merge, diff)
+  - **Effort:** M (Medium - Git interface expansion)
+  - **Dependencies:** Managed storage system
+
+- **📋 Performance Analytics** - Storage usage and sync optimization insights
+  - **Value:** Data-driven optimization recommendations
+  - **Effort:** S (Small - analytics integration)
+  - **Dependencies:** Orchestrator monitoring
+
+#### Medium Priority Features
+- **📋 Multi-Cloud Provider Support** - Support for S3, Dropbox, Google Drive
+  - **Value:** Vendor independence, redundancy options
+  - **Effort:** L (Large - multiple provider integration)
+  - **Dependencies:** Orchestrator architecture
+
+- **📋 Selective Sync Profiles** - Configurable sync profiles for different scenarios
+- **📋 Enhanced Encryption** - End-to-end encryption for sensitive data
 
 ## Feature Evaluation Criteria
 **Scoring Framework:** Features prioritized by user impact, reliability needs, and implementation complexity
@@ -97,6 +152,11 @@
 
 ## Recent Roadmap Changes
 **2025-09-27:** Initial roadmap created based on current project foundation and identified needs
+**2025-10-03:** ⭐ **MAJOR ROADMAP EVOLUTION** - Pivoted from sync tool to intelligent orchestrator
+- Shifted Q4 2025 focus from real-time monitoring to orchestrator development
+- Updated Q1 2026 priorities to support orchestrator enhancement
+- Added Git-based versioning and unified interface as primary goals
+- Repositioned real-time monitoring as Q1 2026 feature
 
 ## Archived Features
 No features archived yet - initial roadmap.
