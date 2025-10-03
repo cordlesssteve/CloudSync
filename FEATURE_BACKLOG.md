@@ -50,6 +50,19 @@ Ideas captured from conversations, feedback, brainstorming - needs evaluation
 **Original Context:** Automated integrity checking using rclone check with MD5/SHA1 verification
 **Submitter Notes:** rclone check provides built-in verification, could automate this process
 
+#### OneDrive Multi-Device Coordination
+**Source:** Real-world implementation session
+**Date Added:** 2025-10-03
+**Original Context:** Distributed multi-device synchronization using OneDrive as coordination layer with device metadata, conflict resolution, and hub-spoke architecture
+**Submitter Notes:** Leverages existing OneDrive subscription, implements custom device coordination without central server. Foundation complete with 4-sprint roadmap for hub implementation.
+**Implementation Status:** Foundation Complete (device metadata, script runner integration, selective sync rules, distributed coordination)
+**Related Files:** 
+- `~/scripts/cloud/coordination.sh` - Multi-device coordination system
+- `~/scripts/cloud/sync-device.sh` - Device sync with metadata
+- `~/scripts/cloud/health-check.sh` - System health monitoring
+- `~/.rclone-rules` - Selective sync configuration
+- `~/docs/ACTIVE_PLAN.md` - Complete development roadmap
+
 #### Delta Sync Optimization
 **Source:** User request for advanced features
 **Date Added:** 2025-09-27
