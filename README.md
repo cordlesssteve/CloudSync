@@ -4,7 +4,7 @@ Advanced cloud synchronization and backup system for development environments.
 
 ## 🎯 Project Overview
 
-CloudSync is a comprehensive solution for managing cloud-based development environment synchronization, featuring smart deduplication, conflict resolution, and incremental syncing capabilities.
+CloudSync is a comprehensive solution for managing cloud-based development environment synchronization, featuring smart deduplication, conflict resolution, and incremental syncing capabilities. Useful when you need Github LFS solutions, but don't want to pay for it. So far, fully functioning with an existing OneDrive storage subscription. Plans to expand features, integrations, etc. in the future.
 
 ## 📁 Project Structure
 
