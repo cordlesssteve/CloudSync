@@ -11,6 +11,8 @@ CONFIG_FILE="$PROJECT_ROOT/config/cloudsync.conf"
 
 if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
+    # Map CONFLICT_RESOLUTION to RESOLUTION_STRATEGY for compatibility
+    RESOLUTION_STRATEGY="${CONFLICT_RESOLUTION:-$RESOLUTION_STRATEGY}"
 else
     echo "⚠️ Configuration file not found: $CONFIG_FILE"
     exit 1
@@ -31,10 +33,65 @@ CONFLICT_DIR="$HOME/.cloudsync/conflicts"
 mkdir -p "$HOME/.cloudsync"
 mkdir -p "$CONFLICT_DIR"
 
-# Function to log messages
+# Retry function for network operations
+retry_command() {
+    local max_attempts=3
+    local delay=2
+    local attempt=1
+    local cmd="$*"
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        if eval "$cmd"; then
+            return 0
+        else
+            if [[ $attempt -lt $max_attempts ]]; then
+                log_message "${YELLOW}⚠️ Attempt $attempt failed, retrying in ${delay}s...${NC}"
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+            else
+                log_message "${RED}❌ All $max_attempts attempts failed for: $cmd${NC}"
+                return 1
+            fi
+        fi
+        ((attempt++))
+    done
+}
+
+# Function to log messages with structured format
 log_message() {
-    echo "[$TIMESTAMP] $1" >> "$LOG_FILE"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local level="INFO"
+    local message="$1"
+    
+    # Extract log level from message if present
+    if [[ "$message" =~ ^(ERROR|WARN|INFO|DEBUG): ]]; then
+        level="${BASH_REMATCH[1]}"
+        message="${message#*: }"
+    fi
+    
+    # Log to file with structured format
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    # Display to console with colors
     echo -e "$1"
+}
+
+# Function to show progress
+show_progress() {
+    local current=$1
+    local total=$2
+    local operation="${3:-Processing}"
+    local percent=$((current * 100 / total))
+    local filled=$((percent / 2))
+    local empty=$((50 - filled))
+    
+    printf "\r${BLUE}%s [" "$operation"
+    printf "%${filled}s" | tr ' ' '█'
+    printf "%${empty}s" | tr ' ' '░'
+    printf "] %d%% (%d/%d)${NC}" "$percent" "$current" "$total"
+    
+    if [[ $current -eq $total ]]; then
+        echo ""  # New line when complete
+    fi
 }
 
 # Function to show usage
@@ -153,7 +210,7 @@ detect_conflicts() {
         log_message "${BLUE}☁️ Scanning remote path: $REMOTE:$REMOTE_PATH${NC}"
 
         local remote_conflicts
-        remote_conflicts=$(rclone lsf "$REMOTE:$REMOTE_PATH" --recursive | grep -E "\.(conflict|sync-conflict)" || true)
+        remote_conflicts=$(retry_command "timeout 30 rclone lsf '$REMOTE:$REMOTE_PATH' --recursive 2>/dev/null" | grep -E "\.(conflict|sync-conflict)" || true)
 
         if [[ -n "$remote_conflicts" ]]; then
             while IFS= read -r line; do
@@ -204,7 +261,7 @@ list_conflicts() {
                     if [[ "$file" =~ ^[^:]+: ]]; then
                         # Remote file
                         local remote_info
-                        remote_info=$(rclone lsl "$file" 2>/dev/null || echo "")
+                        remote_info=$(retry_command "rclone lsl '$file' 2>/dev/null" || echo "")
                         if [[ -n "$remote_info" ]]; then
                             file_size=$(echo "$remote_info" | awk '{print $1}')
                             file_date=$(echo "$remote_info" | awk '{print $2 " " $3}')
@@ -258,17 +315,37 @@ backup_conflicts() {
             else
                 if [[ "$file" =~ ^[^:]+: ]]; then
                     # Remote file
-                    if rclone copy "$file" "$backup_subdir/" >/dev/null 2>&1; then
-                        log_message "${GREEN}✅ Backed up remote: $file${NC}"
-                        ((backed_up++))
+                    if retry_command "rclone copy '$file' '$backup_subdir/' >/dev/null 2>&1"; then
+                        # Verify remote backup
+                        local backup_file="$backup_subdir/$(basename "$file")"
+                        if [[ -f "$backup_file" ]]; then
+                            log_message "${GREEN}✅ Backed up and verified remote: $file${NC}"
+                            ((backed_up++))
+                        else
+                            log_message "${RED}❌ Remote backup verification failed: $file${NC}"
+                        fi
                     else
                         log_message "${RED}❌ Failed to backup remote: $file${NC}"
                     fi
                 else
                     # Local file
                     if [[ -f "$file" ]] && cp "$file" "$backup_path" 2>/dev/null; then
-                        log_message "${GREEN}✅ Backed up local: $file${NC}"
-                        ((backed_up++))
+                        # Verify backup integrity
+                        if [[ -f "$backup_path" ]]; then
+                            local original_size backup_size
+                            original_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo "0")
+                            backup_size=$(stat -f%z "$backup_path" 2>/dev/null || stat -c%s "$backup_path" 2>/dev/null || echo "0")
+                            
+                            if [[ "$original_size" == "$backup_size" ]]; then
+                                log_message "${GREEN}✅ Backed up and verified local: $file${NC}"
+                                ((backed_up++))
+                            else
+                                log_message "${RED}❌ Backup verification failed for: $file (size mismatch)${NC}"
+                                rm -f "$backup_path" 2>/dev/null
+                            fi
+                        else
+                            log_message "${RED}❌ Backup file not found: $backup_path${NC}"
+                        fi
                     else
                         log_message "${RED}❌ Failed to backup local: $file${NC}"
                     fi
@@ -279,6 +356,18 @@ backup_conflicts() {
 
     if ! $DRY_RUN; then
         log_message "${GREEN}💾 Backed up $backed_up files to: $backup_subdir${NC}"
+        
+        # Generate backup summary report
+        {
+            echo "=== BACKUP SUMMARY REPORT ==="
+            echo "Timestamp: $(date)"
+            echo "Backup Directory: $backup_subdir"
+            echo "Files Processed: $backed_up"
+            echo "Resolution Strategy: $RESOLUTION_STRATEGY"
+            echo "=========================="
+        } > "$backup_subdir/backup-report.txt"
+        
+        log_message "${BLUE}📄 Backup report saved to: $backup_subdir/backup-report.txt${NC}"
     fi
 }
 

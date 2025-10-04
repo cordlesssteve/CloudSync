@@ -323,7 +323,15 @@ cmd_rollback() {
             git log --oneline --follow "$(basename "$file_path")" | head -5
             echo ""
             
-            read -p "Rollback to commit $target? (y/N): " -n 1 -r
+            # Handle interactive and non-interactive scenarios
+            if [[ -t 0 ]]; then
+                # Interactive terminal with timeout
+                read -p "Rollback to commit $target? (y/N): " -n 1 -r -t 30 || REPLY="n"
+            else
+                # Non-interactive - default to no
+                echo "Non-interactive mode - rollback cancelled"
+                REPLY="n"
+            fi
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
                 git checkout "$target" -- "$(basename "$file_path")"

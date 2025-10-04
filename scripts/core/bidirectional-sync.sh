@@ -31,6 +31,30 @@ BISYNC_DIR="$HOME/.cloudsync/bisync"
 mkdir -p "$HOME/.cloudsync"
 mkdir -p "$BISYNC_DIR"
 
+# Retry function for network operations
+retry_command() {
+    local max_attempts=3
+    local delay=2
+    local attempt=1
+    local cmd="$*"
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        if eval "$cmd"; then
+            return 0
+        else
+            if [[ $attempt -lt $max_attempts ]]; then
+                log_message "${YELLOW}⚠️ Attempt $attempt failed, retrying in ${delay}s...${NC}"
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+            else
+                log_message "${RED}❌ All $max_attempts attempts failed for: $cmd${NC}"
+                return 1
+            fi
+        fi
+        ((attempt++))
+    done
+}
+
 # Function to log messages
 log_message() {
     echo "[$TIMESTAMP] $1" >> "$LOG_FILE"
@@ -165,15 +189,15 @@ check_access() {
     log_message "${GREEN}✅ Local path access: OK${NC}"
 
     # Check remote connectivity
-    if ! rclone lsd "$REMOTE:" >/dev/null 2>&1; then
+    if ! retry_command "rclone lsd '$REMOTE:' >/dev/null 2>&1"; then
         log_message "${RED}❌ Cannot connect to remote: $REMOTE${NC}"
         exit 1
     fi
 
     # Check/create remote path
-    if ! rclone lsd "$REMOTE:$REMOTE_PATH" >/dev/null 2>&1; then
+    if ! retry_command "rclone lsd '$REMOTE:$REMOTE_PATH' >/dev/null 2>&1"; then
         log_message "${YELLOW}⚠️ Remote path doesn't exist, creating: $REMOTE:$REMOTE_PATH${NC}"
-        rclone mkdir "$REMOTE:$REMOTE_PATH"
+        retry_command "rclone mkdir '$REMOTE:$REMOTE_PATH'"
     fi
 
     log_message "${GREEN}✅ Remote path access: OK${NC}"
