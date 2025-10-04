@@ -1,575 +1,527 @@
 #!/bin/bash
 
-# CloudSync Intelligent Orchestrator
-# Main orchestrator interface providing unified cloudsync commands
-# Coordinates Git, Git-annex, and rclone for optimal cloud storage workflows
+# CloudSync Orchestrator
+# Main unified interface that coordinates Git, Git-Annex, and rclone
+# Provides single commands: cloudsync add/sync/rollback for all file types
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-CONFIG_FILE="$PROJECT_ROOT/config/cloudsync.conf"
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/../config/managed-storage.conf"
+LOG_FILE="${HOME}/.cloudsync/logs/orchestrator.log"
+DECISION_ENGINE="${SCRIPT_DIR}/decision-engine.sh"
+MANAGED_STORAGE="${SCRIPT_DIR}/managed-storage.sh"
 
-# Source configuration
-if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
-else
-    echo "Error: Configuration file not found at $CONFIG_FILE" >&2
-    exit 1
-fi
-
-# Component scripts
-DECISION_ENGINE="$SCRIPT_DIR/decision-engine.sh"
-MANAGED_STORAGE="$SCRIPT_DIR/managed-storage.sh"
-CORE_DIR="$SCRIPT_DIR/core"
-
-# Logging configuration
-LOG_DIR="$PROJECT_ROOT/logs"
-LOG_FILE="$LOG_DIR/orchestrator.log"
-VERBOSE=${VERBOSE:-false}
-DRY_RUN=${DRY_RUN:-false}
+# Ensure dependencies exist
+for script in "$DECISION_ENGINE" "$MANAGED_STORAGE"; do
+    if [[ ! -f "$script" ]]; then
+        echo "❌ Missing dependency: $script"
+        exit 1
+    fi
+done
 
 # Ensure log directory exists
-mkdir -p "$LOG_DIR"
+mkdir -p "$(dirname "$LOG_FILE")"
 
-# Logging functions
-log() {
+# Logging function
+log_orchestrator() {
     local level="$1"
-    shift
-    local message="$*"
-    local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-    
-    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
-    
-    if [[ "$VERBOSE" == "true" || "$level" == "ERROR" || "$level" == "INFO" ]]; then
-        echo "[$level] $message" >&2
-    fi
+    local message="$2"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >> "$LOG_FILE"
+    [[ "${VERBOSE:-false}" == "true" ]] && echo "[$level] $message" >&2
 }
 
-log_info() { log "INFO" "$@"; }
-log_warn() { log "WARN" "$@"; }
-log_error() { log "ERROR" "$@"; }
-log_debug() { log "DEBUG" "$@"; }
-
-# Utility functions
-check_dependencies() {
-    local missing_deps=()
+# Execute tool-specific action
+execute_tool_action() {
+    local tool="$1"
+    local operation="$2"
+    local file_path="$3"
+    local context="${4:-}"
     
-    if ! command -v git >/dev/null 2>&1; then
-        missing_deps+=("git")
-    fi
-    
-    if ! command -v rclone >/dev/null 2>&1; then
-        missing_deps+=("rclone")
-    fi
-    
-    if ! command -v git-annex >/dev/null 2>&1; then
-        log_warn "git-annex not found - large file operations will be limited"
-    fi
-    
-    if [[ ${#missing_deps[@]} -gt 0 ]]; then
-        log_error "Missing required dependencies: ${missing_deps[*]}"
-        return 1
-    fi
-    
-    return 0
-}
-
-execute_command() {
-    local cmd="$1"
-    log_debug "Executing: $cmd"
-    
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY RUN] Would execute: $cmd"
-        return 0
-    fi
-    
-    if eval "$cmd"; then
-        log_debug "Command succeeded: $cmd"
-        return 0
-    else
-        local exit_code=$?
-        log_error "Command failed with exit code $exit_code: $cmd"
-        return $exit_code
-    fi
-}
-
-# Core operations
-cloudsync_add() {
-    local file="$1"
-    local target_path="${2:-}"
-    
-    log_info "Adding file to CloudSync: $file"
-    
-    # Validate file exists
-    if [[ ! -e "$file" ]]; then
-        log_error "File does not exist: $file"
-        return 1
-    fi
-    
-    # Get decision from decision engine
-    local decision
-    if ! decision=$("$DECISION_ENGINE" add "$file" "$target_path"); then
-        log_error "Decision engine failed for file: $file"
-        return 1
-    fi
-    
-    log_debug "Decision engine result: $decision"
-    
-    # Parse decision
-    local tool="${decision%%:*}"
-    local context="${decision#*:}"
+    log_orchestrator "INFO" "Executing $tool action: $operation on $file_path"
     
     case "$tool" in
-        "git")
-            cloudsync_add_git "$file" "$context"
+        git)
+            execute_git_action "$operation" "$file_path"
             ;;
-        "git-annex")
-            cloudsync_add_git_annex "$file" "$context"
+        git-annex)
+            execute_git_annex_action "$operation" "$file_path"
             ;;
-        "promote")
-            cloudsync_add_promote "$file" "$context"
+        git-annex-init)
+            execute_git_annex_init "$operation" "$file_path"
             ;;
-        "rclone")
-            cloudsync_add_rclone "$file" "$context"
+        rclone)
+            execute_rclone_action "$operation" "$file_path"
             ;;
-        "error")
-            log_error "Cannot add file: $context"
-            return 1
+        managed-init)
+            execute_managed_init "$operation" "$file_path"
+            ;;
+        managed-suggest)
+            execute_managed_suggest "$operation" "$file_path"
             ;;
         *)
-            log_error "Unknown tool decision: $tool"
+            echo "❌ Unknown tool: $tool"
             return 1
             ;;
     esac
 }
 
-cloudsync_add_git() {
-    local file="$1"
-    local context="$2"
+# Git operations
+execute_git_action() {
+    local operation="$1"
+    local file_path="$2"
+    local dir_path
     
-    log_info "Adding file via Git: $file (context: $context)"
-    
-    local git_root
-    if git_root=$("$DECISION_ENGINE" analyze "$file" | grep -o '"git_repo":"[^"]*"' | cut -d'"' -f4); then
-        cd "$git_root"
-        execute_command "git add '$file'"
-        log_info "File added to Git staging area: $file"
+    if [[ -d "$file_path" ]]; then
+        dir_path="$file_path"
     else
-        log_error "Could not determine Git repository root for: $file"
-        return 1
+        dir_path="$(dirname "$file_path")"
     fi
+    
+    cd "$dir_path"
+    
+    case "$operation" in
+        add)
+            echo "📝 Adding to Git: $(basename "$file_path")"
+            git add "$file_path"
+            git commit -m "Add $(basename "$file_path")
+
+Added by CloudSync orchestrator
+Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Size: $(stat -f%z "$file_path" 2>/dev/null || stat -c%s "$file_path" 2>/dev/null || echo "unknown")"
+            echo "✅ Added to Git and committed"
+            ;;
+        sync)
+            echo "🔄 Syncing Git repository..."
+            git pull --rebase
+            git push
+            echo "✅ Git sync complete"
+            ;;
+        remove)
+            echo "🗑️  Removing from Git: $(basename "$file_path")"
+            git rm "$file_path"
+            git commit -m "Remove $(basename "$file_path")"
+            echo "✅ Removed from Git"
+            ;;
+        *)
+            echo "❌ Unknown Git operation: $operation"
+            return 1
+            ;;
+    esac
 }
 
-cloudsync_add_git_annex() {
-    local file="$1"
-    local context="$2"
+# Git-Annex operations
+execute_git_annex_action() {
+    local operation="$1"
+    local file_path="$2"
+    local dir_path
     
-    log_info "Adding file via Git-annex: $file (context: $context)"
-    
-    local git_root
-    if git_root=$("$DECISION_ENGINE" analyze "$file" | grep -o '"git_repo":"[^"]*"' | cut -d'"' -f4); then
-        cd "$git_root"
-        
-        # Ensure git-annex is initialized
-        if [[ ! -d ".git/annex" ]]; then
-            log_info "Initializing git-annex in repository: $git_root"
-            execute_command "git annex init"
-        fi
-        
-        execute_command "git annex add '$file'"
-        log_info "File added to Git-annex: $file"
+    if [[ -d "$file_path" ]]; then
+        dir_path="$file_path"
     else
-        log_error "Could not determine Git repository root for: $file"
-        return 1
+        dir_path="$(dirname "$file_path")"
     fi
+    
+    cd "$dir_path"
+    
+    case "$operation" in
+        add)
+            echo "📦 Adding to Git-Annex: $(basename "$file_path")"
+            git annex add "$file_path"
+            git commit -m "Add $(basename "$file_path") to Git-Annex
+
+Added by CloudSync orchestrator
+Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Size: $(stat -f%z "$file_path" 2>/dev/null || stat -c%s "$file_path" 2>/dev/null || echo "unknown")"
+            echo "✅ Added to Git-Annex and committed"
+            ;;
+        sync)
+            echo "🔄 Syncing Git-Annex repository..."
+            git annex sync --content
+            echo "✅ Git-Annex sync complete"
+            ;;
+        remove)
+            echo "🗑️  Removing from Git-Annex: $(basename "$file_path")"
+            git annex drop "$file_path"
+            git rm "$file_path"
+            git commit -m "Remove $(basename "$file_path") from Git-Annex"
+            echo "✅ Removed from Git-Annex"
+            ;;
+        *)
+            echo "❌ Unknown Git-Annex operation: $operation"
+            return 1
+            ;;
+    esac
 }
 
-cloudsync_add_promote() {
-    local file="$1"
-    local target_tool="$2"
+# Git-Annex initialization
+execute_git_annex_init() {
+    local operation="$1"
+    local file_path="$2"
+    local dir_path
     
-    log_info "Promoting file to managed storage: $file (tool: $target_tool)"
-    
-    # Use managed storage script to promote file
-    if [[ -x "$MANAGED_STORAGE" ]]; then
-        execute_command "'$MANAGED_STORAGE' promote '$file' '$target_tool'"
+    if [[ -d "$file_path" ]]; then
+        dir_path="$file_path"
     else
-        log_error "Managed storage script not found or not executable: $MANAGED_STORAGE"
-        return 1
+        dir_path="$(dirname "$file_path")"
+    fi
+    
+    cd "$dir_path"
+    
+    echo "🔧 Initializing Git-Annex in repository..."
+    git annex init "cloudsync-$(hostname)-$(date +%s)"
+    
+    # Now add the file
+    execute_git_annex_action "$operation" "$file_path"
+}
+
+# rclone operations
+execute_rclone_action() {
+    local operation="$1"
+    local file_path="$2"
+    
+    case "$operation" in
+        add|sync)
+            echo "☁️  Copying to cloud: $(basename "$file_path")"
+            local remote_path="DevEnvironment/$(basename "$file_path")"
+            rclone copy "$file_path" "onedrive:$remote_path"
+            echo "✅ Copied to cloud storage"
+            ;;
+        remove)
+            echo "🗑️  Removing from cloud: $(basename "$file_path")"
+            local remote_path="DevEnvironment/$(basename "$file_path")"
+            rclone delete "onedrive:$remote_path"
+            echo "✅ Removed from cloud storage"
+            ;;
+        *)
+            echo "❌ Unknown rclone operation: $operation"
+            return 1
+            ;;
+    esac
+}
+
+# Managed storage initialization
+execute_managed_init() {
+    local operation="$1"
+    local file_path="$2"
+    
+    echo "🏗️  Initializing managed storage for file..."
+    "$MANAGED_STORAGE" init
+    
+    if [[ "$operation" == "add" ]]; then
+        echo "📁 Adding file to managed storage..."
+        "$MANAGED_STORAGE" add "$file_path"
     fi
 }
 
-cloudsync_add_rclone() {
-    local file="$1"
-    local context="$2"
+# Managed storage suggestion
+execute_managed_suggest() {
+    local operation="$1"
+    local file_path="$2"
     
-    log_info "Adding file via rclone: $file (context: $context)"
-    
-    local remote_path="$DEFAULT_REMOTE:$SYNC_BASE_PATH/$(basename "$file")"
-    execute_command "rclone copy '$file' '$remote_path'"
-    log_info "File copied to remote storage: $file -> $remote_path"
+    echo "💡 Suggestion: This file could benefit from managed versioning"
+    echo "   File: $file_path"
+    echo "   To add to managed storage: cloudsync managed-add '$file_path'"
+    echo "   To initialize managed storage: cloudsync managed-init"
 }
 
-cloudsync_sync() {
-    local path="$1"
-    local mode="${2:-bidirectional}"  # bidirectional, push, pull
+# Main add command
+cmd_add() {
+    local file_path="$1"
+    local context="${2:-}"
     
-    log_info "Synchronizing path: $path (mode: $mode)"
-    
-    # Get decision from decision engine
-    local decision
-    if ! decision=$("$DECISION_ENGINE" sync "$path" "$mode"); then
-        log_error "Decision engine failed for path: $path"
+    if [[ ! -e "$file_path" ]]; then
+        echo "❌ File or directory not found: $file_path"
         return 1
     fi
     
-    log_debug "Decision engine result: $decision"
+    # Get absolute path
+    file_path="$(realpath "$file_path")"
+    
+    echo "🎯 CloudSync Add: $file_path"
+    
+    # Use decision engine to determine best tool
+    local decision_output
+    decision_output=$(MACHINE_READABLE=true "$DECISION_ENGINE" add "$file_path" "$context")
     
     # Parse decision
-    local tool="${decision%%:*}"
-    local context="${decision#*:}"
+    local tool reason
+    tool=$(echo "$decision_output" | grep "^TOOL:" | cut -d: -f2)
+    reason=$(echo "$decision_output" | grep "^REASON:" | cut -d: -f2-)
     
-    case "$tool" in
-        "orchestrator")
-            cloudsync_sync_orchestrator "$path" "$mode" "$context"
-            ;;
-        "git")
-            cloudsync_sync_git "$path" "$mode" "$context"
-            ;;
-        "rclone")
-            cloudsync_sync_rclone "$path" "$mode" "$context"
-            ;;
-        "error")
-            log_error "Cannot sync path: $context"
-            return 1
-            ;;
-        *)
-            log_error "Unknown tool decision: $tool"
-            return 1
-            ;;
-    esac
-}
-
-cloudsync_sync_orchestrator() {
-    local path="$1"
-    local mode="$2"
-    local context="$3"
-    
-    log_info "Orchestrated sync: $path (mode: $mode, context: $context)"
-    
-    case "$context" in
-        "managed")
-            # Use managed storage for coordinated sync
-            if [[ -x "$MANAGED_STORAGE" ]]; then
-                execute_command "'$MANAGED_STORAGE' sync '$path' '$mode'"
-            else
-                log_error "Managed storage script not available"
-                return 1
-            fi
-            ;;
-        "git-annex")
-            # Coordinate Git + Git-annex + rclone sync
-            cloudsync_sync_git_annex "$path" "$mode"
-            ;;
-        *)
-            log_error "Unknown orchestrator context: $context"
-            return 1
-            ;;
-    esac
-}
-
-cloudsync_sync_git() {
-    local path="$1"
-    local mode="$2"
-    local context="$3"
-    
-    log_info "Git sync: $path (mode: $mode)"
-    
-    local git_root
-    if git_root=$("$DECISION_ENGINE" analyze "$path" | grep -o '"git_repo":"[^"]*"' | cut -d'"' -f4); then
-        cd "$git_root"
-        
-        case "$mode" in
-            "push")
-                execute_command "git push origin HEAD"
-                ;;
-            "pull")
-                execute_command "git pull origin HEAD"
-                ;;
-            "bidirectional")
-                execute_command "git pull origin HEAD"
-                execute_command "git push origin HEAD"
-                ;;
-        esac
-    else
-        log_error "Not a Git repository: $path"
-        return 1
-    fi
-}
-
-cloudsync_sync_git_annex() {
-    local path="$1"
-    local mode="$2"
-    
-    log_info "Git-annex sync: $path (mode: $mode)"
-    
-    local git_root
-    if git_root=$("$DECISION_ENGINE" analyze "$path" | grep -o '"git_repo":"[^"]*"' | cut -d'"' -f4); then
-        cd "$git_root"
-        
-        case "$mode" in
-            "push")
-                execute_command "git annex sync --content"
-                execute_command "git annex copy --to=$DEFAULT_REMOTE ."
-                ;;
-            "pull")
-                execute_command "git annex sync"
-                execute_command "git annex get ."
-                ;;
-            "bidirectional")
-                execute_command "git annex sync --content"
-                ;;
-        esac
-    else
-        log_error "Not a Git repository: $path"
-        return 1
-    fi
-}
-
-cloudsync_sync_rclone() {
-    local path="$1"
-    local mode="$2"
-    local context="$3"
-    
-    log_info "rclone sync: $path (mode: $mode, context: $context)"
-    
-    local remote_path="$DEFAULT_REMOTE:$SYNC_BASE_PATH/$(basename "$path")"
-    
-    case "$mode" in
-        "push")
-            execute_command "rclone sync '$path' '$remote_path'"
-            ;;
-        "pull")
-            execute_command "rclone sync '$remote_path' '$path'"
-            ;;
-        "bidirectional")
-            # Use existing bidirectional sync script
-            if [[ -x "$CORE_DIR/bidirectional-sync.sh" ]]; then
-                execute_command "'$CORE_DIR/bidirectional-sync.sh' '$path' '$remote_path'"
-            else
-                log_warn "Bidirectional sync script not found, falling back to manual sync"
-                execute_command "rclone sync '$remote_path' '$path'"
-                execute_command "rclone sync '$path' '$remote_path'"
-            fi
-            ;;
-    esac
-}
-
-cloudsync_rollback() {
-    local path="$1"
-    local target_version="${2:-HEAD~1}"
-    
-    log_info "Rolling back path: $path to version: $target_version"
-    
-    # Get decision from decision engine
-    local decision
-    if ! decision=$("$DECISION_ENGINE" rollback "$path" "$target_version"); then
-        log_error "Decision engine failed for rollback: $path"
-        return 1
-    fi
-    
-    log_debug "Decision engine result: $decision"
-    
-    # Parse decision
-    local tool="${decision%%:*}"
-    local context="${decision#*:}"
-    
-    case "$tool" in
-        "git")
-            cloudsync_rollback_git "$path" "$target_version"
-            ;;
-        "error")
-            log_error "Cannot rollback: $context"
-            return 1
-            ;;
-        *)
-            log_error "Unknown tool decision: $tool"
-            return 1
-            ;;
-    esac
-}
-
-cloudsync_rollback_git() {
-    local path="$1"
-    local target_version="$2"
-    
-    log_info "Git rollback: $path to $target_version"
-    
-    local git_root
-    if git_root=$("$DECISION_ENGINE" analyze "$path" | grep -o '"git_repo":"[^"]*"' | cut -d'"' -f4); then
-        cd "$git_root"
-        
-        # Check if path is a file or directory
-        if [[ -f "$path" ]]; then
-            execute_command "git checkout '$target_version' -- '$path'"
-        else
-            execute_command "git checkout '$target_version' -- '$path/'"
-        fi
-        
-        log_info "Rollback completed: $path"
-    else
-        log_error "Not a Git repository: $path"
-        return 1
-    fi
-}
-
-cloudsync_status() {
-    local path="${1:-.}"
-    
-    log_info "Getting CloudSync status for: $path"
-    
-    # Analyze context
-    local context
-    if ! context=$("$DECISION_ENGINE" analyze "$path"); then
-        log_error "Failed to analyze path: $path"
-        return 1
-    fi
-    
-    echo "CloudSync Status for: $path"
-    echo "=================================="
-    echo "$context" | jq '.' 2>/dev/null || echo "$context"
+    echo "🧠 Decision: $tool"
+    echo "   Reason: $reason"
     echo ""
     
-    # Get additional status based on context
-    local in_git_repo=$(echo "$context" | grep -o '"in_git_repo":[^,]*' | cut -d':' -f2)
-    local in_managed=$(echo "$context" | grep -o '"in_managed_storage":[^,]*' | cut -d':' -f2)
+    # Execute action
+    execute_tool_action "$tool" "add" "$file_path" "$context"
+}
+
+# Main sync command
+cmd_sync() {
+    local path="${1:-.}"
+    local direction="${2:-both}"  # push, pull, both
     
-    if [[ "$in_git_repo" == "true" ]]; then
-        echo "Git Status:"
-        echo "----------"
-        if cd "$(dirname "$path")" 2>/dev/null; then
-            git status --porcelain "$path" 2>/dev/null || echo "No changes"
-        fi
-        echo ""
+    # Get absolute path
+    path="$(realpath "$path")"
+    
+    echo "🔄 CloudSync Sync: $path (direction: $direction)"
+    
+    # Use decision engine to determine approach
+    local decision_output
+    decision_output=$(MACHINE_READABLE=true "$DECISION_ENGINE" sync "$path")
+    
+    # Parse decision
+    local tool reason
+    tool=$(echo "$decision_output" | grep "^TOOL:" | cut -d: -f2)
+    reason=$(echo "$decision_output" | grep "^REASON:" | cut -d: -f2-)
+    
+    echo "🧠 Decision: $tool"
+    echo "   Reason: $reason"
+    echo ""
+    
+    # Execute sync
+    execute_tool_action "$tool" "sync" "$path"
+}
+
+# Rollback functionality
+cmd_rollback() {
+    local file_path="$1"
+    local target="${2:-HEAD~1}"  # Default to previous commit
+    
+    if [[ ! -e "$file_path" ]]; then
+        echo "❌ File not found: $file_path"
+        return 1
     fi
     
-    if [[ "$in_managed" == "true" ]]; then
-        echo "Managed Storage Status:"
-        echo "----------------------"
-        if [[ -x "$MANAGED_STORAGE" ]]; then
-            "$MANAGED_STORAGE" status "$path" 2>/dev/null || echo "Status unavailable"
+    # Get absolute path
+    file_path="$(realpath "$file_path")"
+    
+    echo "⏪ CloudSync Rollback: $file_path to $target"
+    
+    # Determine which system manages this file
+    local decision_output
+    decision_output=$(MACHINE_READABLE=true "$DECISION_ENGINE" analyze "$file_path")
+    
+    local tool
+    tool=$(echo "$decision_output" | grep "^TOOL:" | cut -d: -f2)
+    
+    echo "🧠 File managed by: $tool"
+    
+    case "$tool" in
+        git|git-annex)
+            local dir_path
+            if [[ -d "$file_path" ]]; then
+                dir_path="$file_path"
+            else
+                dir_path="$(dirname "$file_path")"
+            fi
+            
+            cd "$dir_path"
+            echo "📜 Git history for $(basename "$file_path"):"
+            git log --oneline --follow "$(basename "$file_path")" | head -5
+            echo ""
+            
+            read -p "Rollback to commit $target? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                git checkout "$target" -- "$(basename "$file_path")"
+                git commit -m "Rollback $(basename "$file_path") to $target"
+                echo "✅ Rolled back to $target"
+            else
+                echo "❌ Rollback cancelled"
+            fi
+            ;;
+        rclone)
+            echo "❌ Rollback not supported for files managed by rclone only"
+            echo "💡 Consider moving to managed storage for version control"
+            ;;
+        *)
+            echo "❌ Cannot rollback: file not under version control"
+            ;;
+    esac
+}
+
+# Status command
+cmd_status() {
+    local path="${1:-.}"
+    
+    # Get absolute path
+    path="$(realpath "$path")"
+    
+    echo "📊 CloudSync Status: $path"
+    
+    # Use decision engine to analyze
+    local decision_output
+    decision_output=$(MACHINE_READABLE=true "$DECISION_ENGINE" analyze "$path")
+    
+    # Parse decision
+    local tool reason size type
+    tool=$(echo "$decision_output" | grep "^TOOL:" | cut -d: -f2)
+    reason=$(echo "$decision_output" | grep "^REASON:" | cut -d: -f2-)
+    size=$(echo "$decision_output" | grep "^SIZE:" | cut -d: -f2)
+    type=$(echo "$decision_output" | grep "^TYPE:" | cut -d: -f2)
+    
+    echo "  Path: $path"
+    echo "  Size: $size bytes"
+    echo "  Type: $type"
+    echo "  Managed by: $tool"
+    echo "  Context: $reason"
+    
+    # Show repository status if applicable
+    if [[ "$tool" =~ ^git ]]; then
+        local dir_path
+        if [[ -d "$path" ]]; then
+            dir_path="$path"
+        else
+            dir_path="$(dirname "$path")"
         fi
+        
         echo ""
+        echo "📂 Repository Status:"
+        (cd "$dir_path" && git status --short)
+        
+        if git -C "$dir_path" config --get annex.uuid >/dev/null 2>&1; then
+            echo ""
+            echo "📦 Git-Annex Status:"
+            (cd "$dir_path" && git annex info --fast)
+        fi
     fi
 }
 
-# CLI interface
-show_usage() {
-    cat << EOF
-CloudSync Intelligent Orchestrator - Unified interface for Git/Git-annex/rclone
+# Managed storage commands
+cmd_managed_init() {
+    echo "🏗️  Initializing CloudSync Managed Storage..."
+    "$MANAGED_STORAGE" init "$@"
+}
 
-Usage: $0 <command> [options]
-
-Commands:
-    add <file> [target]     - Add file to version control (smart tool selection)
-    sync <path> [mode]      - Synchronize path (mode: push/pull/bidirectional)
-    rollback <path> [rev]   - Rollback to previous version
-    status [path]           - Show CloudSync status for path
+cmd_managed_add() {
+    local file_path="$1"
+    shift
     
-Global Options:
-    --verbose               - Enable verbose output
-    --dry-run              - Show what would be done without executing
-    --help                 - Show this help message
+    echo "📁 Adding to Managed Storage: $file_path"
+    "$MANAGED_STORAGE" add "$file_path" "$@"
+}
 
-Examples:
-    $0 add ~/Documents/important-file.txt
-    $0 add ~/Videos/large-video.mp4
-    $0 sync ~/project push
-    $0 sync ~/Documents bidirectional
-    $0 rollback ~/project/file.txt HEAD~2
-    $0 status ~/project
+cmd_managed_sync() {
+    echo "🔄 Syncing Managed Storage..."
+    "$MANAGED_STORAGE" sync "$@"
+}
 
-Environment Variables:
-    VERBOSE=true           - Enable verbose logging
-    DRY_RUN=true          - Enable dry-run mode
-EOF
+cmd_managed_list() {
+    echo "📂 Managed Storage Contents:"
+    "$MANAGED_STORAGE" list "$@"
+}
+
+cmd_managed_status() {
+    echo "📊 Managed Storage Status:"
+    "$MANAGED_STORAGE" status
+}
+
+# Decision engine passthrough
+cmd_analyze() {
+    local file_path="$1"
+    local context="${2:-}"
+    
+    echo "🧠 Decision Engine Analysis:"
+    "$DECISION_ENGINE" analyze "$file_path" "$context"
 }
 
 # Main execution
 main() {
-    # Parse global options
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --verbose)
-                VERBOSE=true
-                shift
-                ;;
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            --help|-h)
-                show_usage
-                exit 0
-                ;;
-            -*)
-                log_error "Unknown option: $1"
-                show_usage >&2
-                exit 1
-                ;;
-            *)
-                break
-                ;;
-        esac
-    done
+    local command="${1:-}"
     
-    if [[ $# -eq 0 ]]; then
-        show_usage
-        exit 1
-    fi
-    
-    # Check dependencies
-    if ! check_dependencies; then
-        exit 1
-    fi
-    
-    # Execute command
-    local command="$1"
-    shift
+    # Set up logging
+    log_orchestrator "INFO" "CloudSync orchestrator started: $*"
     
     case "$command" in
-        "add")
-            if [[ $# -lt 1 ]]; then
-                log_error "Add command requires a file path"
-                exit 1
-            fi
-            cloudsync_add "$@"
+        add)
+            shift
+            cmd_add "$@"
             ;;
-        "sync")
-            if [[ $# -lt 1 ]]; then
-                log_error "Sync command requires a path"
-                exit 1
-            fi
-            cloudsync_sync "$@"
+        sync)
+            shift
+            cmd_sync "$@"
             ;;
-        "rollback")
-            if [[ $# -lt 1 ]]; then
-                log_error "Rollback command requires a path"
-                exit 1
-            fi
-            cloudsync_rollback "$@"
+        rollback)
+            shift
+            cmd_rollback "$@"
             ;;
-        "status")
-            cloudsync_status "$@"
+        status)
+            shift
+            cmd_status "$@"
+            ;;
+        analyze)
+            shift
+            cmd_analyze "$@"
+            ;;
+        managed-init)
+            shift
+            cmd_managed_init "$@"
+            ;;
+        managed-add)
+            shift
+            cmd_managed_add "$@"
+            ;;
+        managed-sync)
+            shift
+            cmd_managed_sync "$@"
+            ;;
+        managed-list)
+            shift
+            cmd_managed_list "$@"
+            ;;
+        managed-status)
+            shift
+            cmd_managed_status "$@"
             ;;
         *)
-            log_error "Unknown command: $command"
-            show_usage >&2
-            exit 1
+            cat <<EOF
+CloudSync Orchestrator - Intelligent Git + Git-Annex + rclone coordination
+
+Usage: $(basename "$0") <command> [options]
+
+Core Commands:
+  add <file> [context]              - Add file using optimal tool
+  sync [path] [direction]           - Sync using appropriate method
+  rollback <file> [target]          - Rollback file to previous version
+  status [path]                     - Show status and management info
+  analyze <file> [context]          - Analyze file without action
+
+Managed Storage Commands:
+  managed-init [--force]            - Initialize managed storage
+  managed-add <file> [category]     - Add file to managed storage
+  managed-sync [direction]          - Sync managed storage
+  managed-list [category]           - List managed files
+  managed-status                    - Show managed storage status
+
+Context Options:
+  managed                           - Force managed storage
+  force=<tool>                      - Force specific tool
+  prefer=<tool>                     - Prefer specific tool
+
+Examples:
+  $(basename "$0") add /path/to/document.txt
+  $(basename "$0") add /path/to/large.zip managed
+  $(basename "$0") sync . push
+  $(basename "$0") rollback important.txt HEAD~2
+  $(basename "$0") status /path/to/project/
+  $(basename "$0") managed-init
+  $(basename "$0") managed-add /path/to/config.yaml configs
+
+The orchestrator automatically chooses between Git, Git-Annex, and rclone based on:
+- File size and type
+- Repository context
+- User preferences
+- Performance optimization
+EOF
+            [[ -n "$command" ]] && exit 1 || exit 0
             ;;
     esac
 }
 
-# Run main function with all arguments
-main "$@"
+# Run main if not sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

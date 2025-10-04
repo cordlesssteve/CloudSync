@@ -1,335 +1,361 @@
 #!/bin/bash
 
 # CloudSync Decision Engine
-# Smart tool selection logic for Git/Git-annex/rclone routing
-# Part of CloudSync Intelligent Orchestrator
+# Intelligent tool selection based on file context and user intent
+# Routes operations to Git, Git-Annex, or rclone based on optimal strategy
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-CONFIG_FILE="$PROJECT_ROOT/config/cloudsync.conf"
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/../config/managed-storage.conf"
+LOG_FILE="${HOME}/.cloudsync/logs/decision-engine.log"
 
-# Source configuration
+# Default thresholds
+DEFAULT_LARGE_FILE_THRESHOLD=$((10 * 1024 * 1024))  # 10MB
+DEFAULT_BINARY_EXTENSIONS="jpg|jpeg|png|gif|bmp|tiff|mp4|avi|mkv|mov|mp3|wav|flac|zip|tar|gz|7z|rar|exe|dmg|iso|pdf"
+DEFAULT_TEXT_EXTENSIONS="txt|md|py|js|ts|jsx|tsx|c|cpp|h|hpp|java|go|rs|sh|bash|zsh|json|xml|yaml|yml|toml|ini|conf|cfg|css|html|scss|sass"
+
+# Load configuration if exists
 if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
-else
-    echo "Error: Configuration file not found at $CONFIG_FILE" >&2
-    exit 1
 fi
 
-# Decision engine configuration
-LARGE_FILE_THRESHOLD=${LARGE_FILE_THRESHOLD:-100M}
-BINARY_FILE_PATTERNS=("*.zip" "*.tar.gz" "*.iso" "*.img" "*.bin" "*.exe" "*.dmg" "*.deb" "*.rpm")
-TEXT_FILE_PATTERNS=("*.txt" "*.md" "*.json" "*.yaml" "*.yml" "*.sh" "*.py" "*.js" "*.ts" "*.html" "*.css")
-CODE_FILE_PATTERNS=("*.py" "*.js" "*.ts" "*.sh" "*.go" "*.rs" "*.c" "*.cpp" "*.java" "*.rb")
+# Use config values or defaults
+LARGE_FILE_THRESHOLD="${LARGE_FILE_THRESHOLD:-$DEFAULT_LARGE_FILE_THRESHOLD}"
+BINARY_EXTENSIONS="${BINARY_EXTENSIONS:-$DEFAULT_BINARY_EXTENSIONS}"
+TEXT_EXTENSIONS="${TEXT_EXTENSIONS:-$DEFAULT_TEXT_EXTENSIONS}"
+
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Logging function
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2
+log_decision() {
+    local level="$1"
+    local message="$2"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >> "$LOG_FILE"
+    [[ "${VERBOSE:-false}" == "true" ]] && echo "[$level] $message" >&2
 }
 
-# Context detection functions
-detect_git_repo() {
-    local path="$1"
-    local current_dir="$(cd "$path" 2>/dev/null && pwd || echo "$path")"
+# Check if file is in a git repository
+is_git_repo() {
+    local file_path="$1"
+    local dir_path
     
-    while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "$current_dir/.git" ]]; then
-            echo "$current_dir"
-            return 0
-        fi
-        current_dir="$(dirname "$current_dir")"
-    done
+    if [[ -d "$file_path" ]]; then
+        dir_path="$file_path"
+    else
+        dir_path="$(dirname "$file_path")"
+    fi
     
-    return 1
+    (cd "$dir_path" && git rev-parse --is-inside-work-tree >/dev/null 2>&1)
 }
 
+# Check if git-annex is initialized in repo
+is_git_annex_repo() {
+    local file_path="$1"
+    local dir_path
+    
+    if [[ -d "$file_path" ]]; then
+        dir_path="$file_path"
+    else
+        dir_path="$(dirname "$file_path")"
+    fi
+    
+    [[ -d "${dir_path}/.git/annex" ]] || (cd "$dir_path" && git config --get annex.uuid >/dev/null 2>&1)
+}
+
+# Get file size in bytes
 get_file_size() {
     local file="$1"
     if [[ -f "$file" ]]; then
-        stat --printf="%s" "$file" 2>/dev/null || echo "0"
+        stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo "0"
     else
         echo "0"
     fi
 }
 
-convert_size_to_bytes() {
-    local size="$1"
-    local number="${size%[KMGT]*}"
-    local unit="${size#$number}"
-    
-    case "$unit" in
-        "K"|"k") echo "$((number * 1024))" ;;
-        "M"|"m") echo "$((number * 1024 * 1024))" ;;
-        "G"|"g") echo "$((number * 1024 * 1024 * 1024))" ;;
-        "T"|"t") echo "$((number * 1024 * 1024 * 1024 * 1024))" ;;
-        *) echo "$number" ;;
-    esac
-}
-
-is_large_file() {
+# Detect file type based on extension
+get_file_type() {
     local file="$1"
-    local file_size=$(get_file_size "$file")
-    local threshold_bytes=$(convert_size_to_bytes "$LARGE_FILE_THRESHOLD")
+    local extension="${file##*.}"
+    extension="${extension,,}"  # Convert to lowercase
     
-    [[ "$file_size" -gt "$threshold_bytes" ]]
-}
-
-detect_file_type() {
-    local file="$1"
-    local filename="$(basename "$file")"
-    
-    # Check for binary patterns
-    for pattern in "${BINARY_FILE_PATTERNS[@]}"; do
-        if [[ "$filename" == $pattern ]]; then
-            echo "binary"
-            return 0
-        fi
-    done
-    
-    # Check for code patterns
-    for pattern in "${CODE_FILE_PATTERNS[@]}"; do
-        if [[ "$filename" == $pattern ]]; then
-            echo "code"
-            return 0
-        fi
-    done
-    
-    # Check for text patterns
-    for pattern in "${TEXT_FILE_PATTERNS[@]}"; do
-        if [[ "$filename" == $pattern ]]; then
+    if [[ "$file" == *.* ]]; then
+        if [[ "$extension" =~ ^($TEXT_EXTENSIONS)$ ]]; then
             echo "text"
-            return 0
+        elif [[ "$extension" =~ ^($BINARY_EXTENSIONS)$ ]]; then
+            echo "binary"
+        else
+            # Use file command as fallback
+            if file -b "$file" 2>/dev/null | grep -qi "text"; then
+                echo "text"
+            else
+                echo "binary"
+            fi
         fi
-    done
-    
-    # Use file command as fallback
-    if command -v file >/dev/null 2>&1 && [[ -f "$file" ]]; then
-        local file_output=$(file -b "$file" 2>/dev/null || echo "")
-        if [[ "$file_output" =~ text|ASCII|UTF-8 ]]; then
+    else
+        # No extension - use file command
+        if [[ -f "$file" ]] && file -b "$file" 2>/dev/null | grep -qi "text"; then
             echo "text"
         else
             echo "binary"
         fi
-    else
-        echo "unknown"
     fi
 }
 
-is_managed_storage() {
-    local path="$1"
-    local managed_root="$HOME/cloudsync-managed"
-    
-    case "$path" in
-        "$managed_root"*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-# Decision logic functions
-decide_tool_for_add() {
+# Check if file matches gitignore patterns
+is_git_ignored() {
     local file="$1"
-    local target_path="${2:-}"
+    local dir_path
     
-    # Validate file exists
-    if [[ ! -e "$file" ]]; then
-        echo "error:file_not_found"
+    if [[ -d "$file" ]]; then
+        dir_path="$file"
+    else
+        dir_path="$(dirname "$file")"
+    fi
+    
+    if is_git_repo "$file"; then
+        (cd "$dir_path" && git check-ignore "$file" >/dev/null 2>&1)
+    else
         return 1
     fi
-    
-    # Context detection
-    local file_type=$(detect_file_type "$file")
-    local is_large=$(is_large_file "$file" && echo "true" || echo "false")
-    local git_repo_root=""
-    
-    if git_repo_root=$(detect_git_repo "$(dirname "$file")"); then
-        local in_git_repo="true"
-    else
-        local in_git_repo="false"
-    fi
-    
-    local in_managed=$(is_managed_storage "$file" && echo "true" || echo "false")
-    
-    # Decision matrix
-    if [[ "$in_managed" == "true" ]]; then
-        # Files in managed storage always use Git-based versioning
-        if [[ "$is_large" == "true" || "$file_type" == "binary" ]]; then
-            echo "git-annex:managed"
-        else
-            echo "git:managed"
-        fi
-    elif [[ "$in_git_repo" == "true" ]]; then
-        # Files in existing Git repos
-        if [[ "$is_large" == "true" || "$file_type" == "binary" ]]; then
-            echo "git-annex:existing"
-        else
-            echo "git:existing"
-        fi
-    else
-        # Files outside Git repos - promote to managed storage
-        if [[ "$is_large" == "true" || "$file_type" == "binary" ]]; then
-            echo "promote:git-annex"
-        elif [[ "$file_type" == "code" || "$file_type" == "text" ]]; then
-            echo "promote:git"
-        else
-            echo "rclone:direct"
-        fi
-    fi
-}
-
-decide_tool_for_sync() {
-    local path="$1"
-    local operation="${2:-bidirectional}"  # bidirectional, push, pull
-    
-    local git_repo_root=""
-    if git_repo_root=$(detect_git_repo "$path"); then
-        local in_git_repo="true"
-    else
-        local in_git_repo="false"
-    fi
-    
-    local in_managed=$(is_managed_storage "$path" && echo "true" || echo "false")
-    
-    if [[ "$in_managed" == "true" ]]; then
-        echo "orchestrator:managed"
-    elif [[ "$in_git_repo" == "true" ]]; then
-        # Check if git-annex is initialized
-        if [[ -d "$git_repo_root/.git/annex" ]]; then
-            echo "orchestrator:git-annex"
-        else
-            echo "git:standard"
-        fi
-    else
-        echo "rclone:$operation"
-    fi
-}
-
-decide_tool_for_rollback() {
-    local path="$1"
-    local target_version="${2:-HEAD~1}"
-    
-    local git_repo_root=""
-    if git_repo_root=$(detect_git_repo "$path"); then
-        local in_git_repo="true"
-    else
-        local in_git_repo="false"
-    fi
-    
-    local in_managed=$(is_managed_storage "$path" && echo "true" || echo "false")
-    
-    if [[ "$in_managed" == "true" || "$in_git_repo" == "true" ]]; then
-        echo "git:rollback"
-    else
-        echo "error:no_version_history"
-    fi
-}
-
-# Context analysis function
-analyze_context() {
-    local path="$1"
-    local operation="${2:-analyze}"
-    
-    local result="{"
-    
-    # Basic path info
-    result+='"path":"'"$path"'",'
-    result+='"exists":'$(if [[ -e "$path" ]]; then echo "true"; else echo "false"; fi)','
-    result+='"type":"'$(if [[ -f "$path" ]]; then echo "file"; elif [[ -d "$path" ]]; then echo "directory"; else echo "unknown"; fi)'",'
-    
-    if [[ -f "$path" ]]; then
-        result+='"file_type":"'$(detect_file_type "$path")'",'
-        result+='"size":'$(get_file_size "$path")','
-        result+='"is_large":'$(is_large_file "$path" && echo "true" || echo "false")','
-    fi
-    
-    # Git context
-    local git_repo_root=""
-    if git_repo_root=$(detect_git_repo "$path" 2>/dev/null); then
-        result+='"git_repo":"'"$git_repo_root"'",'
-        result+='"in_git_repo":true,'
-        
-        # Check for git-annex
-        if [[ -d "$git_repo_root/.git/annex" ]]; then
-            result+='"has_git_annex":true,'
-        else
-            result+='"has_git_annex":false,'
-        fi
-    else
-        result+='"in_git_repo":false,'
-        result+='"has_git_annex":false,'
-    fi
-    
-    # Managed storage context
-    result+='"in_managed_storage":'$(is_managed_storage "$path" && echo "true" || echo "false")','
-    
-    # Remove trailing comma and close
-    result="${result%,}}"
-    
-    echo "$result"
 }
 
 # Main decision function
-make_decision() {
-    local operation="$1"
-    local path="$2"
-    shift 2
+decide_tool() {
+    local operation="$1"  # add, sync, remove, etc.
+    local file_path="$2"
+    local context="${3:-}"  # Optional context hints
     
-    case "$operation" in
-        "add")
-            decide_tool_for_add "$path" "$@"
+    local decision=""
+    local reason=""
+    local file_size
+    local file_type
+    
+    log_decision "INFO" "Analyzing: operation=$operation, file=$file_path, context=$context"
+    
+    # Check if path exists
+    if [[ ! -e "$file_path" ]]; then
+        if [[ "$operation" == "remove" ]] || [[ "$operation" == "delete" ]]; then
+            # For removal, check which system knows about it
+            if is_git_repo "$(dirname "$file_path")"; then
+                decision="git"
+                reason="File in git repository (for removal)"
+            else
+                decision="rclone"
+                reason="File not in git repository (for removal)"
+            fi
+        else
+            decision="error"
+            reason="Path does not exist: $file_path"
+        fi
+    else
+        # Get file properties
+        file_size=$(get_file_size "$file_path")
+        file_type=$(get_file_type "$file_path")
+        
+        log_decision "DEBUG" "File properties: size=$file_size bytes, type=$file_type"
+        
+        # Decision tree
+        if is_git_repo "$file_path"; then
+            # File is in a git repository
+            if is_git_annex_repo "$file_path"; then
+                # Git-annex is available
+                if [[ "$file_size" -gt "$LARGE_FILE_THRESHOLD" ]]; then
+                    decision="git-annex"
+                    reason="Large file ($file_size bytes) in git-annex enabled repo"
+                elif [[ "$file_type" == "binary" ]] && [[ "$file_size" -gt $((1024 * 1024)) ]]; then
+                    # Binary files over 1MB go to git-annex
+                    decision="git-annex"
+                    reason="Binary file over 1MB in git-annex enabled repo"
+                else
+                    decision="git"
+                    reason="Small/text file in git repository"
+                fi
+            else
+                # Regular git repo without annex
+                if [[ "$file_size" -gt "$LARGE_FILE_THRESHOLD" ]]; then
+                    decision="git-annex-init"
+                    reason="Large file needs git-annex initialization"
+                else
+                    decision="git"
+                    reason="File in git repository"
+                fi
+            fi
+        else
+            # Not in a git repository
+            if [[ "$context" == "managed" ]] || [[ "$file_path" == *"/cloudsync-managed/"* ]]; then
+                # File should be in managed storage
+                decision="managed-init"
+                reason="File needs managed storage initialization"
+            elif [[ "$file_size" -gt "$LARGE_FILE_THRESHOLD" ]]; then
+                # Large file outside git - use rclone directly
+                decision="rclone"
+                reason="Large file outside git repository"
+            elif [[ "$operation" == "sync" ]]; then
+                # Sync operation outside git - use rclone
+                decision="rclone"
+                reason="Sync operation outside git repository"
+            else
+                # Suggest managed storage for versioning
+                decision="managed-suggest"
+                reason="File could benefit from managed versioning"
+            fi
+        fi
+    fi
+    
+    log_decision "INFO" "Decision: tool=$decision, reason=$reason"
+    
+    # Output decision in parseable format
+    echo "TOOL:$decision"
+    echo "REASON:$reason"
+    echo "SIZE:$file_size"
+    echo "TYPE:$file_type"
+    
+    return 0
+}
+
+# Parse context hints
+parse_context() {
+    local context_string="$1"
+    
+    # Parse key=value pairs
+    while IFS='=' read -r key value; do
+        case "$key" in
+            force)
+                echo "FORCE:$value"
+                ;;
+            prefer)
+                echo "PREFER:$value"
+                ;;
+            managed)
+                echo "MANAGED:true"
+                ;;
+        esac
+    done <<< "$(echo "$context_string" | tr ',' '\n')"
+}
+
+# Recommend action based on decision
+recommend_action() {
+    local tool="$1"
+    local operation="$2"
+    local file_path="$3"
+    
+    case "$tool" in
+        git)
+            case "$operation" in
+                add)
+                    echo "git add '$file_path' && git commit -m 'Add $(basename "$file_path")'"
+                    ;;
+                sync)
+                    echo "git pull && git push"
+                    ;;
+                remove)
+                    echo "git rm '$file_path' && git commit -m 'Remove $(basename "$file_path")'"
+                    ;;
+            esac
             ;;
-        "sync")
-            decide_tool_for_sync "$path" "$@"
+        git-annex)
+            case "$operation" in
+                add)
+                    echo "git annex add '$file_path' && git commit -m 'Add $(basename "$file_path")'"
+                    ;;
+                sync)
+                    echo "git annex sync --content"
+                    ;;
+                remove)
+                    echo "git annex drop '$file_path' && git rm '$file_path'"
+                    ;;
+            esac
             ;;
-        "rollback")
-            decide_tool_for_rollback "$path" "$@"
+        git-annex-init)
+            echo "cd '$(dirname "$file_path")' && git annex init && git annex add '$file_path'"
             ;;
-        "analyze")
-            analyze_context "$path" "$@"
+        rclone)
+            case "$operation" in
+                add|sync)
+                    echo "rclone copy '$file_path' onedrive:DevEnvironment/$(dirname "$file_path")"
+                    ;;
+                remove)
+                    echo "rclone delete 'onedrive:DevEnvironment/$file_path'"
+                    ;;
+            esac
             ;;
-        *)
-            echo "error:unknown_operation"
-            return 1
+        managed-init)
+            echo "cloudsync managed-init '$file_path'"
+            ;;
+        managed-suggest)
+            echo "# Consider: cloudsync managed-add '$file_path' (for version control)"
             ;;
     esac
 }
 
-# CLI interface
-show_usage() {
-    cat << EOF
-CloudSync Decision Engine - Smart tool selection for Git/Git-annex/rclone
-
-Usage: $0 <operation> <path> [options]
+# Main execution
+main() {
+    local operation="${1:-}"
+    local file_path="${2:-}"
+    local context="${3:-}"
+    
+    if [[ -z "$operation" ]] || [[ -z "$file_path" ]]; then
+        cat <<EOF
+Usage: $(basename "$0") <operation> <file_path> [context]
 
 Operations:
-    add <file> [target]     - Decide tool for adding file to version control
-    sync <path> [mode]      - Decide tool for synchronization (mode: push/pull/bidirectional)
-    rollback <path> [rev]   - Decide tool for rollback operation
-    analyze <path>          - Analyze context and provide detailed information
+  add     - Add file to cloud storage
+  sync    - Synchronize file/directory
+  remove  - Remove file from storage
+  analyze - Analyze file without action
+
+Context (optional):
+  managed       - Force managed storage
+  force=<tool>  - Force specific tool (git/git-annex/rclone)
+  prefer=<tool> - Prefer specific tool if applicable
 
 Examples:
-    $0 add ~/Documents/large-file.zip
-    $0 sync ~/project push
-    $0 rollback ~/project HEAD~2
-    $0 analyze ~/Documents
-
-Output format: tool:context or error:reason
+  $(basename "$0") add /path/to/file.txt
+  $(basename "$0") add /path/to/large.zip managed
+  $(basename "$0") sync /path/to/project
+  $(basename "$0") analyze /path/to/file.dat
 EOF
+        exit 1
+    fi
+    
+    # Resolve absolute path
+    file_path="$(realpath "$file_path" 2>/dev/null || echo "$file_path")"
+    
+    # Make decision
+    local decision_output
+    decision_output=$(decide_tool "$operation" "$file_path" "$context")
+    
+    # Parse decision
+    local tool reason size type
+    tool=$(echo "$decision_output" | grep "^TOOL:" | cut -d: -f2)
+    reason=$(echo "$decision_output" | grep "^REASON:" | cut -d: -f2-)
+    size=$(echo "$decision_output" | grep "^SIZE:" | cut -d: -f2)
+    type=$(echo "$decision_output" | grep "^TYPE:" | cut -d: -f2)
+    
+    # Output decision
+    if [[ "${MACHINE_READABLE:-false}" == "true" ]]; then
+        echo "$decision_output"
+    else
+        echo "Decision Engine Analysis:"
+        echo "  File: $file_path"
+        echo "  Size: $size bytes"
+        echo "  Type: $type"
+        echo "  Tool: $tool"
+        echo "  Reason: $reason"
+        echo ""
+        echo "Recommended action:"
+        recommend_action "$tool" "$operation" "$file_path"
+    fi
+    
+    # Return appropriate exit code
+    [[ "$tool" == "error" ]] && exit 1
+    exit 0
 }
 
-# Main execution
-if [[ $# -eq 0 ]]; then
-    show_usage
-    exit 1
+# Run main if not sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
 fi
-
-case "$1" in
-    "--help"|"-h")
-        show_usage
-        exit 0
-        ;;
-    *)
-        make_decision "$@"
-        ;;
-esac
