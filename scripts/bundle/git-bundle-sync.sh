@@ -293,15 +293,16 @@ main() {
             local error_count=0
 
             while IFS= read -r -d '' repo_dir; do
-                ((repo_count++))
+                repo_count=$((repo_count + 1))
+                log "DEBUG" "Found repo: $repo_dir (count: $repo_count)"
 
                 if process_repository "${repo_dir%/.git}"; then
-                    ((success_count++))
+                    success_count=$((success_count + 1))
                 else
                     if is_small_repo "${repo_dir%/.git}"; then
-                        ((error_count++))
+                        error_count=$((error_count + 1))
                     else
-                        ((skip_count++))
+                        skip_count=$((skip_count + 1))
                     fi
                 fi
             done < <(find ~/projects -name ".git" -type d -print0 2>/dev/null)
