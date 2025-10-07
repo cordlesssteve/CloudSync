@@ -88,9 +88,7 @@ git annex sync --content          # Sync both metadata and content
 
 ## Cost Benefits
 
-- **GitHub LFS:** ~$5/month per 50GB
-- **OneDrive + git-annex:** Existing OneDrive subscription
-- **Savings:** ~14x cheaper for equivalent storage
+Git-annex with OneDrive allows you to leverage existing cloud storage subscriptions rather than requiring specialized Git hosting services.
 
 ## Advanced Configuration
 

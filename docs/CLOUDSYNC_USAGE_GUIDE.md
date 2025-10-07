@@ -8,13 +8,12 @@
 
 ## 🎯 Overview
 
-CloudSync is an **intelligent orchestrator** that provides unified file management with Git-based versioning for all file types at 14x lower cost than Git LFS. It automatically coordinates Git, Git-Annex, and rclone for optimal storage workflows.
+CloudSync is an **intelligent orchestrator** that provides unified file management with Git-based versioning for all file types. It automatically coordinates Git, Git-Annex, and rclone for optimal storage workflows.
 
 ### Key Capabilities
 - ✅ **Unified Interface**: Single commands for all file operations
 - ✅ **Smart Tool Selection**: Automatic routing based on file context
 - ✅ **Complete Versioning**: Git-based history for ALL file types
-- ✅ **Cost Efficient**: 14x cheaper than Git LFS for large files
 - ✅ **Multi-Device Sync**: Automatic coordination across devices
 - ✅ **Conflict Resolution**: Intelligent conflict detection and resolution
 

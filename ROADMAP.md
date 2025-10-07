@@ -38,7 +38,7 @@
   - **Status:** ✅ Complete - Interactive and automated resolution
 
 - **✅ Git-Annex Integration** - Large file management with versioning
-  - **Value:** Efficient large file storage with OneDrive, 14x cheaper than GitHub LFS
+  - **Value:** Efficient large file storage with OneDrive using existing cloud storage
   - **Status:** ✅ Complete - Full OneDrive integration via rclone
 
 #### NEW High Priority Features (Must Have) - Orchestrator Layer
