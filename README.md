@@ -37,21 +37,36 @@ CloudSync/
 
 ## 🔧 Features
 
-- **Smart File Selection**: Intelligent filtering of critical vs rebuildable data
-- **Incremental Syncing**: Only transfers changed files
-- **Conflict Detection**: Identifies and handles sync conflicts
-- **Multiple Backends**: Support for OneDrive, Dropbox, S3, etc.
-- **Automated Backups**: Scheduled backup operations with Restic
-- **Health Monitoring**: Comprehensive sync status tracking
+### Core Sync Capabilities
+- **Intelligent Orchestrator**: Unified interface with smart tool selection (Git/Git-annex/rclone)
+- **Bidirectional Sync**: Two-way synchronization with rclone bisync
+- **Conflict Resolution**: Automated and interactive conflict handling
+- **Smart Deduplication**: Hash-based duplicate detection and removal
+- **Checksum Verification**: MD5/SHA1 integrity checking with reporting
+
+### Git Bundle Sync System
+- **Efficient Cloud Storage**: Bundle repos as single files instead of thousands of individual files
+- **Incremental Bundles**: Smart strategy for medium/large repos with automatic consolidation
+- **Critical Files Preservation**: Intelligent backup of .gitignored credentials and configs
+- **OneDrive Optimization**: Dramatically reduces API calls and rate limiting issues
+
+### Advanced Features
+- **Git-Annex Integration**: Large file handling with OneDrive backend
+- **Unified Versioning**: Git-based version history for all file types
+- **Managed Storage**: Organized, version-controlled storage with automatic categorization
+- **Multi-Device Coordination**: Distributed synchronization across multiple devices
+- **Health Monitoring**: Comprehensive status tracking and reporting
 
 ## 📋 Current Capabilities
 
-- ✅ One-way sync with smart exclusions
-- ✅ Incremental backup with Restic
-- ✅ Development environment migration
-- ⚠️ Bidirectional sync (planned)
-- ⚠️ Automatic conflict resolution (planned)
-- ⚠️ Real-time file monitoring (planned)
+- ✅ Intelligent orchestrator with unified interface (`cloudsync` commands)
+- ✅ Bidirectional sync with conflict resolution
+- ✅ Git bundle sync for efficient cloud storage (51+ repos tested)
+- ✅ Incremental bundles with automatic consolidation
+- ✅ Git-annex integration for large files
+- ✅ Smart deduplication and checksum verification
+- ✅ Unified versioning across all file types
+- ✅ Production-ready with comprehensive documentation
 
 ## 🔗 Related Systems
 
@@ -60,8 +75,24 @@ CloudSync/
 - **OneDrive**: Current primary cloud backend
 - **system-config**: System configuration management
 
+## 📦 Git Bundle Sync Usage
+
+```bash
+# Sync all repositories to OneDrive as bundles
+./scripts/bundle/git-bundle-sync.sh sync
+
+# Test a single repository
+./scripts/bundle/git-bundle-sync.sh test ~/projects/path/to/repo
+
+# Restore from bundle
+./scripts/bundle/restore-from-bundle.sh restore <repo_name> [target_dir]
+
+# Test restore to /tmp
+./scripts/bundle/restore-from-bundle.sh test <repo_name>
+```
+
 ---
 
-**Status**: Active Development
+**Status**: Production Ready
 **Maintainer**: cordlesssteve
-**Last Updated**: 2025-09-27
+**Last Updated**: 2025-10-07

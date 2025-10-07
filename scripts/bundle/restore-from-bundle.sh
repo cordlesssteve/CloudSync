@@ -23,6 +23,17 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" | tee -a "$LOG_FILE"
 }
 
+# Load manifest file
+load_manifest() {
+    local manifest_file="$1"
+
+    if [[ -f "$manifest_file" ]]; then
+        cat "$manifest_file"
+    else
+        echo '{}'
+    fi
+}
+
 # Restore repository from bundle
 restore_repository() {
     local repo_name="$1"
@@ -34,15 +45,15 @@ restore_repository() {
     fi
 
     local bundle_dir="${BUNDLE_BASE_DIR}/${repo_name}"
-    local bundle_file="${bundle_dir}/full.bundle"
+    local manifest_file="${bundle_dir}/bundle-manifest.json"
     local critical_tarball="${bundle_dir}/critical-ignored.tar.gz"
 
     log "INFO" "========================================="
     log "INFO" "Restoring: $repo_name"
     log "INFO" "Target: $target_dir"
 
-    # Check if bundle exists locally, if not download from cloud
-    if [[ ! -f "$bundle_file" ]]; then
+    # Check if bundles exist locally, if not download from cloud
+    if [[ ! -d "$bundle_dir" ]] || [[ ! -f "$manifest_file" ]]; then
         log "INFO" "Bundle not found locally, downloading from cloud..."
         local remote_dir="${REMOTE_BASE}/${repo_name}"
 
@@ -56,22 +67,48 @@ restore_repository() {
             return 1
         fi
 
-        log "INFO" "✓ Bundle downloaded"
+        log "INFO" "✓ Bundles downloaded"
     fi
 
-    # Verify bundle exists
-    if [[ ! -f "$bundle_file" ]]; then
-        log "ERROR" "Bundle file not found: $bundle_file"
+    # Load manifest
+    local manifest
+    manifest=$(load_manifest "$manifest_file")
+
+    # Get bundle count
+    local bundle_count
+    bundle_count=$(echo "$manifest" | jq '.bundles | length')
+
+    if [[ $bundle_count -eq 0 ]]; then
+        log "ERROR" "No bundles found in manifest"
         return 1
     fi
 
-    # Verify bundle is valid
-    log "INFO" "Verifying bundle..."
-    if ! git bundle verify "$bundle_file" >/dev/null 2>&1; then
-        log "ERROR" "Bundle verification failed"
+    log "INFO" "Found $bundle_count bundle(s) to apply"
+
+    # Find the full bundle
+    local full_bundle
+    full_bundle=$(echo "$manifest" | jq -r '.bundles[] | select(.type == "full") | .filename' | tail -1)
+
+    if [[ -z "$full_bundle" ]] || [[ "$full_bundle" == "null" ]]; then
+        log "ERROR" "No full bundle found in manifest"
         return 1
     fi
-    log "INFO" "✓ Bundle verified"
+
+    local full_bundle_path="${bundle_dir}/${full_bundle}"
+
+    # Verify full bundle exists
+    if [[ ! -f "$full_bundle_path" ]]; then
+        log "ERROR" "Full bundle file not found: $full_bundle_path"
+        return 1
+    fi
+
+    # Verify full bundle is valid
+    log "INFO" "Verifying full bundle: $full_bundle..."
+    if ! git bundle verify "$full_bundle_path" >/dev/null 2>&1; then
+        log "ERROR" "Full bundle verification failed"
+        return 1
+    fi
+    log "INFO" "✓ Full bundle verified"
 
     # Check if target directory exists
     if [[ -d "$target_dir" ]]; then
@@ -85,13 +122,54 @@ restore_repository() {
         rm -rf "$target_dir"
     fi
 
-    # Clone from bundle
-    log "INFO" "Cloning from bundle..."
-    if ! git clone "$bundle_file" "$target_dir" 2>&1 | tee -a "$LOG_FILE"; then
-        log "ERROR" "Failed to clone from bundle"
+    # Clone from full bundle
+    log "INFO" "Cloning from full bundle..."
+    if ! git clone "$full_bundle_path" "$target_dir" 2>&1 | tee -a "$LOG_FILE"; then
+        log "ERROR" "Failed to clone from full bundle"
         return 1
     fi
-    log "INFO" "✓ Repository cloned"
+    log "INFO" "✓ Repository cloned from full bundle"
+
+    # Apply incremental bundles in order
+    local incremental_bundles
+    incremental_bundles=$(echo "$manifest" | jq -r '.bundles[] | select(.type == "incremental") | .filename')
+
+    if [[ -n "$incremental_bundles" ]]; then
+        log "INFO" "Applying incremental bundles..."
+
+        local incremental_count=0
+        while IFS= read -r incremental_bundle; do
+            if [[ -z "$incremental_bundle" ]]; then
+                continue
+            fi
+
+            incremental_count=$((incremental_count + 1))
+            local incremental_path="${bundle_dir}/${incremental_bundle}"
+
+            if [[ ! -f "$incremental_path" ]]; then
+                log "ERROR" "Incremental bundle not found: $incremental_path"
+                return 1
+            fi
+
+            log "INFO" "  Applying: $incremental_bundle"
+
+            # Verify incremental bundle
+            if ! git -C "$target_dir" bundle verify "$incremental_path" >/dev/null 2>&1; then
+                log "ERROR" "Incremental bundle verification failed: $incremental_bundle"
+                return 1
+            fi
+
+            # Pull from incremental bundle
+            if ! git -C "$target_dir" pull "$incremental_path" HEAD 2>&1 | tee -a "$LOG_FILE"; then
+                log "ERROR" "Failed to apply incremental bundle: $incremental_bundle"
+                return 1
+            fi
+
+            log "INFO" "  ✓ Applied: $incremental_bundle"
+        done <<< "$incremental_bundles"
+
+        log "INFO" "✓ Applied $incremental_count incremental bundle(s)"
+    fi
 
     # Restore critical ignored files
     if [[ -f "$critical_tarball" ]]; then

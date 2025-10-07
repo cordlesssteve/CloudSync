@@ -1,8 +1,8 @@
 # CloudSync System Architecture Overview
 
-**Last Updated:** 2025-09-27
-**Version:** 1.0
-**Status:** Active
+**Last Updated:** 2025-10-07
+**Version:** 2.0
+**Status:** Production Ready
 
 ## System Purpose
 
@@ -33,7 +33,58 @@ The heart of CloudSync, providing four main synchronization capabilities:
 - **Technology**: Pattern-based conflict detection with backup workflows
 - **Features**: Auto-resolution strategies, conflict backup, interactive resolution
 
-### 2. Configuration Management (`config/`)
+### 2. Git Bundle Sync System (`scripts/bundle/`)
+Efficient repository synchronization via git bundles for cloud storage optimization.
+
+#### **Git Bundle Sync** (`git-bundle-sync.sh`)
+- **Purpose**: Sync git repositories to cloud as single bundle files instead of thousands of individual files
+- **Technology**: Git bundles with incremental strategy and JSON manifest tracking
+- **Features**:
+  - Size-based strategy: Small repos (< 100MB) use full bundles, medium/large use incremental bundles
+  - Automatic consolidation after 10 incremental bundles or 30 days
+  - Critical .gitignored files preservation (credentials, .env, API keys)
+  - Manifest-based bundle chain tracking
+  - OneDrive API rate limiting mitigation (reduces from thousands of files to 4 per repo)
+
+#### **Bundle Restore** (`restore-from-bundle.sh`)
+- **Purpose**: Restore repositories from bundle chains
+- **Technology**: Git bundle verification and application with critical files restoration
+- **Features**: Full bundle + incremental chain support, test mode, integrity verification
+
+### 3. Intelligent Orchestrator (`scripts/`)
+Unified interface with smart tool selection for all file operations.
+
+#### **CloudSync Orchestrator** (`cloudsync-orchestrator.sh`)
+- **Purpose**: Single interface for all sync operations with intelligent tool routing
+- **Technology**: Decision engine coordinating Git, Git-Annex, and rclone
+- **Features**:
+  - Unified commands: `cloudsync add/sync/status/rollback`
+  - Context-aware tool selection based on file type, size, and location
+  - Managed storage with Git-based versioning for all file types
+  - Automatic categorization and organization
+
+#### **Decision Engine** (`decision-engine.sh`)
+- **Purpose**: Smart routing logic for tool selection
+- **Technology**: Rule-based decision tree with context detection
+- **Features**:
+  - Git detection for source code and text files
+  - Git-annex routing for large files (> 100MB)
+  - rclone fallback for non-Git contexts
+  - Size-based strategy selection
+
+### 4. Git-Annex Integration
+Large file handling with OneDrive backend support.
+
+#### **Git-Annex with OneDrive**
+- **Purpose**: Version control for large files without bloating Git repositories
+- **Technology**: git-annex with rclone special remote for OneDrive
+- **Features**:
+  - Large file (> 100MB) automatic detection and routing
+  - OneDrive as git-annex backend storage
+  - Version history for large binary files
+  - Seamless integration with orchestrator
+
+### 5. Configuration Management (`config/`)
 Centralized configuration system for consistent operation across all components.
 
 #### **Main Configuration** (`cloudsync.conf`)
@@ -53,7 +104,7 @@ CRITICAL_PATHS=(".ssh" "scripts" "mcp-servers" "docs")
 EXCLUDE_PATTERNS=("*.tmp" "*.log" "node_modules/")
 ```
 
-### 3. Monitoring System (`scripts/monitoring/`)
+### 6. Monitoring System (`scripts/monitoring/`)
 Comprehensive health monitoring and reporting for all system components.
 
 #### **Health Check System** (`sync-health-check.sh`)
@@ -63,34 +114,43 @@ Comprehensive health monitoring and reporting for all system components.
 - Usage statistics and performance tracking
 - Backup system integration
 
-### 4. Data Flow Architecture
+### 7. Data Flow Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Local Files   │◄──►│   CloudSync      │◄──►│  Cloud Storage  │
-│                 │    │   Engine         │    │   (OneDrive)    │
-│ ~/projects/     │    │                  │    │ DevEnvironment/ │
-│ ~/.ssh/         │    │ ┌──────────────┐ │    │                 │
-│ ~/scripts/      │    │ │ Bidirectional│ │    │                 │
-│ ~/docs/         │    │ │     Sync     │ │    │                 │
-└─────────────────┘    │ └──────────────┘ │    └─────────────────┘
-         │              │ ┌──────────────┐ │              │
-         │              │ │   Conflict   │ │              │
-         ▼              │ │  Resolution  │ │              ▼
-┌─────────────────┐    │ └──────────────┘ │    ┌─────────────────┐
-│   Backup        │    │ ┌──────────────┐ │    │   Integrity     │
-│   Storage       │    │ │ Deduplication│ │    │   Verification  │
-│                 │    │ │ & Checksum   │ │    │                 │
-│ Restic Repo     │    │ └──────────────┘ │    │ Hash Validation │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
+│   Local Files   │◄──►│   CloudSync          │◄──►│  Cloud Storage  │
+│                 │    │   Orchestrator       │    │   (OneDrive)    │
+│ ~/projects/     │    │                      │    │                 │
+│ ~/.ssh/         │    │ ┌──────────────────┐ │    │ DevEnvironment/ │
+│ ~/scripts/      │    │ │ Decision Engine  │ │    │ Git Bundles/    │
+│ ~/docs/         │    │ │  (Smart Routing) │ │    │ Git-Annex/      │
+└─────────────────┘    │ └──────────────────┘ │    │ rclone Files/   │
+         │              │         │            │    └─────────────────┘
+         │              │         ▼            │              │
+         │              │ ┌──────────────────┐ │              │
+         │              │ │  Git / Git-Annex │ │              │
+         ▼              │ │  / rclone / Bundle│ │              ▼
+┌─────────────────┐    │ └──────────────────┘ │    ┌─────────────────┐
+│ Managed Storage │    │ ┌──────────────────┐ │    │   Integrity     │
+│ (Git-based)     │    │ │  Bidirectional   │ │    │   Verification  │
+│                 │    │ │  Sync & Conflict │ │    │                 │
+│ ~/cloudsync-    │    │ │    Resolution    │ │    │ Hash Validation │
+│    managed/     │    │ └──────────────────┘ │    │ Bundle Verify   │
+└─────────────────┘    │ ┌──────────────────┐ │    └─────────────────┘
+                       │ │  Deduplication   │ │
+                       │ │  & Checksum      │ │
+                       │ └──────────────────┘ │
+                       └──────────────────────┘
 ```
 
 ## Technology Stack
 
 ### Core Dependencies
-- **rclone**: Primary sync engine and cloud storage interface
+- **rclone**: Cloud storage interface and bidirectional sync engine
+- **git**: Version control and bundle creation for repository sync
+- **git-annex**: Large file version control with cloud backend
 - **bash**: Script runtime environment
-- **jq**: JSON processing for reports and statistics
+- **jq**: JSON processing for reports, statistics, and manifest tracking
 - **restic**: Backup system integration
 
 ### Cloud Provider Support
@@ -170,16 +230,18 @@ Integration with existing backup infrastructure:
 
 ## Future Architecture Considerations
 
-### Planned Enhancements
-- Real-time file monitoring (inotify integration)
-- Web-based dashboard for monitoring
-- Multi-cloud provider support
+### Optional Enhancements (System is Production Ready)
+- Real-time file monitoring (inotify integration) for automatic sync triggers
+- Web-based dashboard for visual monitoring and management
+- Multi-cloud provider support beyond OneDrive
 - API integration for external systems
-- Enhanced encryption capabilities
+- Enhanced encryption capabilities beyond rclone's native support
+- Large repository (> 500MB) incremental bundle testing and optimization
 
 ### Extensibility Points
-- Plugin architecture for custom filters
-- Webhook integration for notifications
-- Custom conflict resolution strategies
-- External backup system integration
-- Multi-profile configuration support
+- Plugin architecture for custom file routing rules
+- Webhook integration for sync notifications
+- Additional conflict resolution strategy plugins
+- External backup system integration beyond Restic
+- Multi-profile configuration support for different sync scenarios
+- Custom bundle consolidation triggers and strategies
