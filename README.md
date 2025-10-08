@@ -25,15 +25,26 @@ CloudSync/
 ## 🚀 Quick Start
 
 ```bash
-# Initialize CloudSync environment
-./scripts/core/cloudsync-init.sh
+# Clone the repository
+git clone https://github.com/cordlesssteve/CloudSync.git
+cd CloudSync
 
-# Perform development environment sync
-./scripts/core/dev-env-sync.sh push
+# Create configuration from template
+cp config/cloudsync.conf.template config/cloudsync.conf
+nano config/cloudsync.conf  # Edit: Set RESTIC_PASSWORD and other values
+
+# Copy rclone config template
+cp config/rclone.conf.template ~/.config/rclone/rclone.conf
+# Edit with your cloud provider credentials
+
+# Run git bundle sync (backs up all repositories)
+./scripts/bundle/git-bundle-sync.sh sync
 
 # Monitor sync status
 ./scripts/monitoring/sync-health-check.sh
 ```
+
+See [Setup Guide](docs/reference/03-development/setup-guide.md) for detailed installation instructions.
 
 ## 🔧 Features
 

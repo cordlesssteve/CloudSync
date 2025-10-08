@@ -15,6 +15,10 @@ cd CloudSync
 cp config/rclone.conf.template ~/.config/rclone/rclone.conf
 # Edit with your cloud provider credentials
 
+# Create CloudSync configuration from template
+cp config/cloudsync.conf.template config/cloudsync.conf
+nano config/cloudsync.conf  # Edit: Set RESTIC_PASSWORD and other values
+
 # Load CloudSync configuration
 source config/cloudsync.conf
 echo "Default remote: $DEFAULT_REMOTE"
