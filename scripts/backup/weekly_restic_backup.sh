@@ -7,7 +7,15 @@
 # Configuration
 REPO_PATH="/mnt/c/Dev/wsl_backups/restic_repo"
 BACKUP_SOURCE="$HOME"
-PASSWORD="acordlessblorpwalksintoabar"
+# Load password from config file
+CLOUDSYNC_CONFIG="${HOME}/projects/Utility/LOGISTICAL/CloudSync/config/cloudsync.conf"
+if [[ -f "$CLOUDSYNC_CONFIG" ]]; then
+    source "$CLOUDSYNC_CONFIG"
+    PASSWORD="$RESTIC_PASSWORD"
+else
+    echo "ERROR: CloudSync config not found at $CLOUDSYNC_CONFIG"
+    exit 1
+fi
 LOG_FILE="$HOME/.backup_logs/restic_weekly.log"
 STATUS_FILE="$HOME/.backup_status"
 RESTIC_BIN="$HOME/.local/bin/restic"

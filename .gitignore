@@ -3,7 +3,6 @@
 # Sensitive configuration files
 config/*.conf
 !config/*.conf.template
-!config/cloudsync.conf
 .env
 .env.local
 *.key

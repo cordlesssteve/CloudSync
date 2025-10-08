@@ -1,0 +1,73 @@
+# CloudSync Configuration
+# Main configuration file for CloudSync operations
+
+# Default cloud remote (from rclone config)
+DEFAULT_REMOTE="onedrive"
+
+# Base paths
+SYNC_BASE_PATH="DevEnvironment"
+BACKUP_BASE_PATH="Backups"
+
+# Sync behavior
+ENABLE_CHECKSUMS=true
+ENABLE_PROGRESS=true
+ENABLE_COMPRESSION=false
+DEFAULT_TIMEOUT=300
+
+# Conflict resolution
+CONFLICT_RESOLUTION="ask"  # ask, local, remote, backup
+BACKUP_BEFORE_OVERWRITE=true
+
+# Monitoring
+ENABLE_HEALTH_MONITORING=true
+HEALTH_CHECK_INTERVAL=3600  # seconds
+LOG_RETENTION_DAYS=30
+
+# Paths to sync (relative to HOME)
+CRITICAL_PATHS=(
+    ".ssh"
+    "scripts"
+    "mcp-servers"
+    "docs"
+    ".claude/templates"
+    "templates"
+    ".notez"
+)
+
+CRITICAL_FILES=(
+    ".gitconfig"
+    ".bash_aliases"
+    ".bashrc"
+    ".profile"
+    ".vimrc"
+    ".git-credentials"
+    ".claude/.credentials.json"
+)
+
+# Exclusion patterns
+EXCLUDE_PATTERNS=(
+    "*.tmp"
+    "*.log"
+    "node_modules/"
+    ".git/"
+    "__pycache__/"
+    "*.pyc"
+    "venv/"
+    ".venv/"
+    "env/"
+    ".env/"
+    "*.egg-info/"
+    "dist/"
+    "build/"
+    ".pytest_cache/"
+    "cache/"
+    "logs/"
+    "tmp/"
+)
+
+# Backup configuration (for Restic)
+RESTIC_REPOSITORY_PATH="/mnt/c/Dev/wsl_backups/restic_repo"
+RESTIC_PASSWORD="CHANGE_THIS_PASSWORD"
+RESTIC_RETENTION_DAILY=7
+RESTIC_RETENTION_WEEKLY=4
+RESTIC_RETENTION_MONTHLY=6
