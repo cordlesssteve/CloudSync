@@ -47,6 +47,7 @@ CloudSync/
 ### Git Bundle Sync System
 - **Efficient Cloud Storage**: Bundle repos as single files instead of thousands of individual files
 - **Incremental Bundles**: Smart strategy for medium/large repos with automatic consolidation
+- **Bundle Consolidation**: Automated monitoring and manual consolidation for optimal performance
 - **Critical Files Preservation**: Intelligent backup of .gitignored credentials and configs
 - **OneDrive Optimization**: Dramatically reduces API calls and rate limiting issues
 
@@ -56,6 +57,8 @@ CloudSync/
 - **Managed Storage**: Organized, version-controlled storage with automatic categorization
 - **Multi-Device Coordination**: Distributed synchronization across multiple devices
 - **Health Monitoring**: Comprehensive status tracking and reporting
+- **Notifications System**: Multi-backend alerts (ntfy.sh, webhooks, email)
+- **Restore Verification**: Automated disaster recovery testing
 
 ## 📋 Current Capabilities
 
@@ -90,6 +93,28 @@ CloudSync/
 # Test restore to /tmp
 ./scripts/bundle/restore-from-bundle.sh test <repo_name>
 ```
+
+## 🔔 Notifications & Monitoring
+
+```bash
+# Send manual notification
+./scripts/notify.sh success "Title" "Message"
+
+# Run restore verification (includes consolidation check)
+./scripts/bundle/verify-restore.sh --max-repos 5
+
+# Consolidate incremental bundles
+./scripts/bundle/git-bundle-sync.sh consolidate Work/spaceful
+
+# View sync logs
+tail -f ~/.cloudsync/logs/cron-sync.log
+
+# View restore verification results
+tail -f ~/.cloudsync/logs/restore-verification.log
+```
+
+See [NOTIFICATIONS_AND_MONITORING.md](./docs/NOTIFICATIONS_AND_MONITORING.md) for complete setup guide.
+See [BUNDLE_CONSOLIDATION_GUIDE.md](./docs/BUNDLE_CONSOLIDATION_GUIDE.md) for consolidation details.
 
 ---
 

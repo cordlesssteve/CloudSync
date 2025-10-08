@@ -1,0 +1,147 @@
+#!/bin/bash
+# CloudSync Auto-Backup Git Hook
+# Triggers bundle sync after commits with 10-minute debounce
+#
+# Installation: Copy to .git/hooks/post-commit in each repository
+# Or use: scripts/hooks/install-git-hooks.sh
+
+set -euo pipefail
+
+# Configuration
+DEBOUNCE_DELAY=600  # 10 minutes in seconds
+CLOUDSYNC_ROOT="${HOME}/projects/Utility/LOGISTICAL/CloudSync"
+CLOUDSYNC_SCRIPT="${CLOUDSYNC_ROOT}/scripts/bundle/git-bundle-sync.sh"
+NOTIFY_SCRIPT="${CLOUDSYNC_ROOT}/scripts/notify.sh"
+LOG_DIR="${HOME}/.cloudsync/logs"
+HOOK_LOG="${LOG_DIR}/hook-sync.log"
+LOCK_DIR="/tmp/cloudsync-hook-locks"
+
+# Get repository information
+REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null)"
+REPO_NAME="$(basename "$REPO_PATH")"
+REPO_RELATIVE="${REPO_PATH#${HOME}/projects/}"
+
+# Ensure directories exist
+mkdir -p "$LOG_DIR"
+mkdir -p "$LOCK_DIR"
+
+# Lock file for this repository
+LOCK_FILE="${LOCK_DIR}/${REPO_NAME}.lock"
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${REPO_NAME}] $*" >> "$HOOK_LOG"
+}
+
+# Update lock file with current timestamp
+update_lock() {
+    date +%s > "$LOCK_FILE"
+    log "Commit detected, debounce timer started (${DEBOUNCE_DELAY}s)"
+}
+
+# Check if we should trigger sync
+should_sync() {
+    if [[ ! -f "$LOCK_FILE" ]]; then
+        return 1  # No lock file, something went wrong
+    fi
+
+    local lock_time
+    lock_time=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
+    local current_time
+    current_time=$(date +%s)
+    local elapsed=$((current_time - lock_time))
+
+    # Check if enough time has passed
+    [[ $elapsed -ge $DEBOUNCE_DELAY ]]
+}
+
+# Trigger sync
+trigger_sync() {
+    log "Debounce timer expired, triggering sync..."
+
+    # Check if CloudSync script exists
+    if [[ ! -x "$CLOUDSYNC_SCRIPT" ]]; then
+        log "ERROR: CloudSync script not found or not executable: ${CLOUDSYNC_SCRIPT}"
+        return 1
+    fi
+
+    # Run bundle sync
+    if "$CLOUDSYNC_SCRIPT" test "$REPO_PATH" >> "$HOOK_LOG" 2>&1; then
+        log "✓ Auto-backup completed successfully"
+
+        # Send notification if available
+        if [[ -x "$NOTIFY_SCRIPT" ]]; then
+            "$NOTIFY_SCRIPT" success \
+                "CloudSync: Auto-Backup Complete" \
+                "Repository ${REPO_RELATIVE} backed up automatically after commit" >> "$HOOK_LOG" 2>&1 || true
+        fi
+
+        return 0
+    else
+        log "✗ Auto-backup failed (see log for details)"
+
+        # Send error notification if available
+        if [[ -x "$NOTIFY_SCRIPT" ]]; then
+            "$NOTIFY_SCRIPT" error \
+                "CloudSync: Auto-Backup Failed" \
+                "Repository ${REPO_RELATIVE} backup failed. Check logs: ${HOOK_LOG}" >> "$HOOK_LOG" 2>&1 || true
+        fi
+
+        return 1
+    fi
+}
+
+# Debounce worker (runs in background)
+debounce_worker() {
+    # Sleep for debounce delay
+    sleep "$DEBOUNCE_DELAY"
+
+    # Check if we should still sync
+    if should_sync; then
+        trigger_sync
+        # Remove lock file after successful sync
+        rm -f "$LOCK_FILE"
+    else
+        # Lock file was updated (another commit happened)
+        # Don't sync, let the newer timer handle it
+        log "Debounce timer aborted (newer commit detected)"
+    fi
+}
+
+# Main execution
+main() {
+    # Update lock file timestamp
+    update_lock
+
+    # Kill any existing debounce worker for this repo
+    # (This prevents multiple timers running simultaneously)
+    local existing_pids
+    existing_pids=$(pgrep -f "debounce_worker.*${REPO_NAME}" 2>/dev/null || true)
+    if [[ -n "$existing_pids" ]]; then
+        # Don't kill - let the newest timestamp win
+        # The old worker will see the updated timestamp and abort
+        log "Existing debounce timer found, will be superseded by this one"
+    fi
+
+    # Start new debounce worker in background
+    # Export functions and variables needed by worker
+    export -f debounce_worker should_sync trigger_sync log
+    export DEBOUNCE_DELAY LOCK_FILE REPO_PATH REPO_NAME REPO_RELATIVE
+    export CLOUDSYNC_SCRIPT NOTIFY_SCRIPT HOOK_LOG
+
+    # Run worker in background, detached from current shell
+    (
+        debounce_worker
+    ) &
+
+    # Disown the background job so it survives shell exit
+    disown
+
+    log "Auto-backup scheduled (will run in ${DEBOUNCE_DELAY}s if no more commits)"
+}
+
+# Run main function
+main
+
+# Success (don't block commit)
+exit 0
