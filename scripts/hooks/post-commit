@@ -129,10 +129,9 @@ main() {
     export DEBOUNCE_DELAY LOCK_FILE REPO_PATH REPO_NAME REPO_RELATIVE
     export CLOUDSYNC_SCRIPT NOTIFY_SCRIPT HOOK_LOG
 
-    # Run worker in background, detached from current shell
-    (
-        debounce_worker
-    ) &
+    # Run worker in background, fully detached from git process
+    # Use nohup and redirect all I/O to prevent git from waiting
+    nohup bash -c 'debounce_worker' </dev/null >>"$HOOK_LOG" 2>&1 &
 
     # Disown the background job so it survives shell exit
     disown
