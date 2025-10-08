@@ -576,6 +576,137 @@ process_repository() {
     return 0
 }
 
+# Consolidate incremental bundles into a new full bundle
+consolidate_bundles() {
+    local repo_path="$1"
+    local repo_name
+    repo_name=$(get_repo_name "$repo_path")
+    local bundle_dir="${BUNDLE_BASE_DIR}/${repo_name}"
+    local manifest_file
+    manifest_file=$(get_manifest_path "$repo_name")
+
+    # Check if bundle directory exists
+    if [[ ! -d "$bundle_dir" ]]; then
+        log "ERROR" "Bundle directory not found: $bundle_dir"
+        return 1
+    fi
+
+    # Check if manifest exists
+    if [[ ! -f "$manifest_file" ]]; then
+        log "ERROR" "Manifest file not found: $manifest_file"
+        return 1
+    fi
+
+    # Get current incremental count
+    local incremental_count
+    incremental_count=$(jq -r '.incremental_count // 0' "$manifest_file")
+
+    log "INFO" "========================================="
+    log "INFO" "Consolidating bundles for: $repo_name"
+    log "INFO" "Current incremental bundles: $incremental_count"
+
+    # Check if consolidation is needed
+    if [[ $incremental_count -eq 0 ]]; then
+        log "INFO" "Repository already has full bundle only, no consolidation needed"
+        return 0
+    fi
+
+    # Verify repository is valid
+    if [[ ! -d "${repo_path}/.git" ]]; then
+        log "ERROR" "Not a git repository: $repo_path"
+        return 1
+    fi
+
+    cd "$repo_path"
+
+    # Create archive directory for old bundles
+    local archive_dir="${bundle_dir}/.archive-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$archive_dir"
+
+    # Move old bundles to archive
+    log "INFO" "Archiving old bundles to: $(basename "$archive_dir")"
+    mv "${bundle_dir}"/*.bundle "$archive_dir/" 2>/dev/null || true
+    mv "${bundle_dir}"/*.timestamp "$archive_dir/" 2>/dev/null || true
+
+    # Backup old manifest
+    cp "$manifest_file" "${archive_dir}/bundle-manifest.json.bak"
+
+    # Create new full bundle
+    log "INFO" "Creating new consolidated full bundle..."
+    local bundle_file="${bundle_dir}/full.bundle"
+    local timestamp_file="${bundle_dir}/full.bundle.timestamp"
+
+    if git bundle create "$bundle_file" --all 2>&1 | tee -a "$LOG_FILE"; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$timestamp_file"
+
+        # Tag current HEAD
+        git tag -f "$BUNDLE_TAG" HEAD
+
+        # Get bundle info
+        local bundle_size_bytes
+        bundle_size_bytes=$(stat -c%s "$bundle_file" 2>/dev/null || stat -f%z "$bundle_file" 2>/dev/null)
+        local bundle_size_human
+        bundle_size_human=$(du -h "$bundle_file" | cut -f1)
+        local current_commit
+        current_commit=$(git rev-parse HEAD)
+
+        log "INFO" "✓ Consolidated bundle created: $bundle_size_human"
+
+        # Create new manifest with reset incremental count
+        cat > "$manifest_file" <<EOF
+{
+  "bundles": [
+    {
+      "type": "full",
+      "filename": "full.bundle",
+      "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+      "commit": "$current_commit",
+      "size": $bundle_size_bytes
+    }
+  ],
+  "last_bundle_commit": "$current_commit",
+  "incremental_count": 0,
+  "last_full_bundle_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "consolidation_history": [
+    {
+      "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+      "previous_incremental_count": $incremental_count,
+      "archive_dir": "$(basename "$archive_dir")"
+    }
+  ]
+}
+EOF
+
+        # Sync to remote
+        log "INFO" "Syncing consolidated bundle to OneDrive..."
+        local remote_dir="${REMOTE_BASE}/${repo_name}"
+
+        if rclone sync "$bundle_dir" "$remote_dir" \
+            --exclude ".archive-*/**" \
+            --verbose 2>&1 | tee -a "$LOG_FILE"; then
+            log "INFO" "✓ Consolidated bundle synced to remote"
+        else
+            log "ERROR" "✗ Failed to sync consolidated bundle to remote"
+            return 1
+        fi
+
+        log "INFO" "========================================="
+        log "INFO" "✓ Consolidation complete for: $repo_name"
+        log "INFO" "Previous incrementals: $incremental_count"
+        log "INFO" "New bundle size: $bundle_size_human"
+        log "INFO" "Old bundles archived in: $(basename "$archive_dir")"
+        log "INFO" "========================================="
+
+        return 0
+    else
+        log "ERROR" "✗ Failed to create consolidated bundle"
+        # Restore old bundles if consolidation failed
+        mv "$archive_dir"/* "$bundle_dir/" 2>/dev/null || true
+        rmdir "$archive_dir" 2>/dev/null || true
+        return 1
+    fi
+}
+
 # Main execution
 main() {
     local command="${1:-sync}"
@@ -646,6 +777,34 @@ main() {
             process_repository "$test_repo"
             ;;
 
+        consolidate)
+            # Consolidate incremental bundles into new full bundle
+            local repo_arg="${2:-}"
+            if [[ -z "$repo_arg" ]]; then
+                echo "Usage: $0 consolidate <repo_path>"
+                echo ""
+                echo "Example:"
+                echo "  $0 consolidate ~/projects/Work/spaceful"
+                echo "  $0 consolidate Work/spaceful  (relative to bundle dir)"
+                exit 1
+            fi
+
+            # Check if argument is absolute path or bundle dir relative path
+            local repo_path
+            if [[ -d "$repo_arg" ]]; then
+                # Absolute path to repo
+                repo_path="$repo_arg"
+            elif [[ -d "${HOME}/projects/${repo_arg}" ]]; then
+                # Relative path from ~/projects
+                repo_path="${HOME}/projects/${repo_arg}"
+            else
+                log "ERROR" "Repository not found: $repo_arg"
+                exit 1
+            fi
+
+            consolidate_bundles "$repo_path"
+            ;;
+
         restore)
             # Restore from bundle (to be implemented)
             echo "Restore functionality coming in next iteration"
@@ -657,19 +816,21 @@ main() {
 Usage: $0 <command> [options]
 
 Commands:
-  sync              - Sync all small repositories to cloud
-  test <repo_path>  - Test sync on a single repository
-  restore           - Restore repository from bundle (not yet implemented)
+  sync                  - Sync all repositories to cloud
+  test <repo_path>      - Test sync on a single repository
+  consolidate <repo>    - Consolidate incremental bundles into new full bundle
+  restore               - Restore repository from bundle (not yet implemented)
 
 Configuration:
   Critical patterns: ${CONFIG_FILE}
   Bundle storage:    ${BUNDLE_BASE_DIR}
   Remote location:   ${REMOTE_BASE}
-  Size threshold:    ${SIZE_THRESHOLD_MB}MB
 
-Example:
-  $0 test ~/projects/Extra/GAMES/Gneiss
+Examples:
   $0 sync
+  $0 test ~/projects/Extra/GAMES/Gneiss
+  $0 consolidate ~/projects/Work/spaceful
+  $0 consolidate Work/spaceful
 EOF
             exit 1
             ;;

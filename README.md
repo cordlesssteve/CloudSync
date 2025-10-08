@@ -59,6 +59,7 @@ CloudSync/
 - **Health Monitoring**: Comprehensive status tracking and reporting
 - **Notifications System**: Multi-backend alerts (ntfy.sh, webhooks, email)
 - **Restore Verification**: Automated disaster recovery testing
+- **Git Hooks Auto-Backup**: Automatic backup within 10 minutes of commit
 
 ## 📋 Current Capabilities
 
@@ -106,8 +107,14 @@ CloudSync/
 # Consolidate incremental bundles
 ./scripts/bundle/git-bundle-sync.sh consolidate Work/spaceful
 
+# Install git hooks for auto-backup
+./scripts/hooks/install-git-hooks.sh
+
 # View sync logs
 tail -f ~/.cloudsync/logs/cron-sync.log
+
+# View git hook auto-backup log
+tail -f ~/.cloudsync/logs/hook-sync.log
 
 # View restore verification results
 tail -f ~/.cloudsync/logs/restore-verification.log
@@ -115,6 +122,7 @@ tail -f ~/.cloudsync/logs/restore-verification.log
 
 See [NOTIFICATIONS_AND_MONITORING.md](./docs/NOTIFICATIONS_AND_MONITORING.md) for complete setup guide.
 See [BUNDLE_CONSOLIDATION_GUIDE.md](./docs/BUNDLE_CONSOLIDATION_GUIDE.md) for consolidation details.
+See [GIT_HOOKS_AUTO_BACKUP.md](./docs/GIT_HOOKS_AUTO_BACKUP.md) for auto-backup setup.
 
 ---
 
