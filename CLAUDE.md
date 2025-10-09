@@ -25,8 +25,9 @@
 - **Name:** CloudSync
 - **Type:** CLI Tool / Sync Service
 - **Status:** Active
-- **Tech Stack:** [Languages, frameworks, tools]
-- **Repository:** [Git repo URL if applicable]
+- **Tech Stack:** Bash, rclone, git-annex
+- **Repository:** https://github.com/cordlesssteve/CloudSync.git
+- **Data Directory:** `~/cloudsync-managed/` (synced to OneDrive, NOT git-tracked)
 
 ## 🚨 MANDATORY READING ORDER 🚨
 Before starting ANY development work, Claude MUST read these files in order:
@@ -51,13 +52,106 @@ Before starting ANY development work, Claude MUST read these files in order:
 [Add deployment instructions if applicable]
 
 ## Architecture Overview
-Cloud synchronization service management.
+Cloud synchronization service management using rclone for OneDrive sync and custom orchestration scripts.
+
+**Key Components:**
+- **Development Repository:** This git repo (scripts, monitoring, orchestration)
+- **Data Directory:** `~/cloudsync-managed/` - Files being synced to cloud
+- **Backup Scripts:** `scripts/backup/` - System-level backup automation
+
+## Backup Script Locations & D: Drive Migration
+
+**IMPORTANT: Multiple script locations exist for different purposes**
+
+### Script Locations Matrix
+
+| Location | Purpose | Git Tracked | Used By |
+|----------|---------|-------------|---------|
+| `~/scripts/system/` | **Active cron jobs** | ❌ No | System cron |
+| `~/cloudsync-managed/scripts/system/` | **Data backup** | ❌ No | OneDrive sync |
+| `~/projects/.../CloudSync/scripts/backup/` | **Development** | ✅ Yes | This repo |
+
+### D: Drive Migration (Oct 2025)
+
+**Background:** C: drive reached 94% capacity (416GB/447GB). Moved all backups to D: drive.
+
+**Symlink for Compatibility:**
+```bash
+/mnt/c/Dev/wsl_backups -> /mnt/d/wsl_backups  # Created Oct 7, 2025
+```
+
+**Backup Paths (Updated Oct 9, 2025):**
+- **Restic:** `/mnt/d/wsl_backups/restic_repo` (42GB, 6 snapshots)
+- **TAR Archives:** `/mnt/d/wsl_backups/full_archives`
+- **Scripts use symlink:** `/mnt/c/Dev/wsl_backups/*` (points to D: drive)
+
+**Scripts Updated:**
+- ✅ `quarterly_tar_backup.sh` - BACKUP_DIR → `/mnt/d/wsl_backups/full_archives`
+- ✅ `weekly_restic_backup.sh` - Comment updated to document D: drive + symlink
+- ✅ `startup_health_check.sh` - RESTIC_REPO → `/mnt/d/wsl_backups/restic_repo`
+
+**Maintenance Tasks:**
+- Restic prune run: Reclaimed 5.5GB (331 duplicate files removed)
+- Repository optimized: 48GB → 42GB
+- Stale lock cleared: Retention policy now working
 
 ## External Dependencies
-[List critical external services, APIs, databases]
+- **rclone** - Cloud sync engine (OneDrive remote configured)
+- **restic** - Backup tool (`~/.local/bin/restic`)
+- **OneDrive** - Cloud storage backend
+- **git-annex** - Large file management (optional)
 
 ## Common Tasks
-[Add frequently used commands, scripts, or procedures]
+
+### Update Active Backup Scripts
+```bash
+# 1. Edit in this repo
+vim scripts/backup/quarterly_tar_backup.sh
+
+# 2. Copy to active location
+cp scripts/backup/*.sh ~/scripts/system/
+
+# 3. Copy to data directory for cloud sync
+cp scripts/backup/*.sh ~/cloudsync-managed/scripts/system/
+
+# 4. Commit changes
+git add scripts/backup/
+git commit -m "Update backup scripts"
+git push
+
+# 5. Sync to OneDrive
+rclone sync ~/cloudsync-managed/ onedrive:cloudsync-managed
+```
+
+### Check Backup Status
+```bash
+# Check restic repository
+export RESTIC_PASSWORD="acordlessblorpwalksintoabar"
+export RESTIC_REPOSITORY="/mnt/d/wsl_backups/restic_repo"
+~/.local/bin/restic snapshots
+
+# Check disk usage
+df -h /mnt/c /mnt/d
+
+# View backup logs
+tail -50 ~/.backup_logs/restic_weekly.log
+```
 
 ## Known Issues / Gotchas
-[Document any quirks, workarounds, or things to watch out for]
+
+### Script Location Confusion
+- **Problem:** Three different script locations can get out of sync
+- **Solution:** Always update all three locations when modifying backup scripts
+- **Order:** Edit in repo → Copy to `~/scripts/` → Copy to `~/cloudsync-managed/` → Commit & sync
+
+### CloudSync Auto-Backup Broken
+- **Issue:** `cloudsync-auto-backup.sh` expects git repo in `~/cloudsync-managed/`
+- **Status:** Cron job failing since Oct 6, 2025
+- **Workaround:** Use manual `rclone sync` commands
+- **Resolution:** Needs script update or removal from cron
+
+### C: Drive Still Shows in Scripts
+- **Note:** Some scripts reference `/mnt/c/Dev/wsl_backups/`
+- **This is OK:** It's a symlink to `/mnt/d/wsl_backups/`
+- **Actual writes:** Go to D: drive automatically
+- **Why keep it:** Backwards compatibility with existing configs
