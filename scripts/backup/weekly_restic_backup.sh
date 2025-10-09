@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Weekly Restic Backup Script
-# Backs up home directory to /mnt/c/wsl_backups/restic_repo
+# Backs up home directory to /mnt/d/wsl_backups/restic_repo (via /mnt/c/Dev/wsl_backups symlink)
 # Runs every Sunday at 02:00 AM
 
 # Configuration
-REPO_PATH="/mnt/c/Dev/wsl_backups/restic_repo"
+REPO_PATH="/mnt/c/Dev/wsl_backups/restic_repo"  # Symlinked to /mnt/d/wsl_backups/restic_repo
 BACKUP_SOURCE="$HOME"
 # Load password from config file
 CLOUDSYNC_CONFIG="${HOME}/projects/Utility/LOGISTICAL/CloudSync/config/cloudsync.conf"

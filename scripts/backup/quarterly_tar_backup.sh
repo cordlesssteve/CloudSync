@@ -6,7 +6,7 @@
 
 # Configuration
 BACKUP_SOURCE="$HOME"
-BACKUP_DIR="/mnt/c/Dev/wsl_backups/full_archives"
+BACKUP_DIR="/mnt/d/wsl_backups/full_archives"
 LOG_FILE="$HOME/.backup_logs/tar_quarterly.log"
 STATUS_FILE="$HOME/.backup_status"
 DATE_STAMP=$(date '+%Y-%m-%d')
