@@ -71,7 +71,7 @@ git config user.name "CloudSync Tester"
 # Create initial test files
 log_event "INFO" "STEP_1" "Creating test files..."
 for i in {1..5}; do
-    local filename="file_$i.txt"
+    filename="file_$i.txt"
     echo "Test file $i - $(date +%Y-%m-%d)" > "$filename"
     git add "$filename" >> "$GIT_LOG" 2>&1
     git commit -m "Add $filename" >> "$GIT_LOG" 2>&1
@@ -109,7 +109,6 @@ log_directory_structure "$TEST_WORK_DIR/source-repo" \
     "Source Repository"
 
 # Calculate source repository checksum
-local source_repo_checksum
 source_repo_checksum=$(find "$TEST_WORK_DIR/source-repo" -type f ! -path '*/.git/*' -exec sha256sum {} + | sha256sum | awk '{print $1}')
 log_metric "SOURCE_REPO_CHECKSUM" "$source_repo_checksum"
 
