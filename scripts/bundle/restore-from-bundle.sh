@@ -1,27 +1,28 @@
 #!/bin/bash
 
 # CloudSync Bundle Restore
-# Restore a repository from git bundle + critical ignored files
+# Restore repositories and directories from git bundles + non-git archives
+# This script now delegates to unified-restore.sh for all bundle types
 
 set -euo pipefail
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOG_FILE="${HOME}/.cloudsync/logs/bundle-restore.log"
-BUNDLE_BASE_DIR="${HOME}/.cloudsync/bundles"
-REMOTE_BASE="onedrive:DevEnvironment/bundles"
+UNIFIED_RESTORE="${SCRIPT_DIR}/unified-restore.sh"
 
-# Ensure log directory exists
-mkdir -p "$(dirname "$LOG_FILE")"
+# Check if unified restore exists
+if [[ ! -f "$UNIFIED_RESTORE" ]]; then
+    echo "ERROR: Unified restore script not found: $UNIFIED_RESTORE"
+    exit 1
+fi
 
-# Logging
-log() {
-    local level="$1"
-    shift
-    local message="$*"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" | tee -a "$LOG_FILE"
-}
+# Delegate to unified restore
+echo "🔄 Using unified restore system..."
+echo ""
+
+# Pass all arguments to unified restore
+exec bash "$UNIFIED_RESTORE" "$@"
 
 # Load manifest file
 load_manifest() {

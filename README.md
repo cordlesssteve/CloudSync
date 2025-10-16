@@ -48,6 +48,16 @@ See [Setup Guide](docs/reference/03-development/setup-guide.md) for detailed ins
 
 ## 🔧 Features
 
+### Four-Tier Backup System
+CloudSync provides comprehensive protection through multiple complementary systems:
+
+1. **Git Bundle Sync** - 60+ repositories backed up daily as efficient bundles
+2. **Non-Git Archives** - Large directories (backups, media, .local/bin) archived weekly
+3. **Dev Environment Sync** - Real-time protection for SSH keys, configs, and secrets
+4. **System Backups** - Full home directory via Restic (weekly) and TAR (quarterly)
+
+**Result:** 99.9% reduction in OneDrive API calls (110,000 → 102 per sync)
+
 ### Core Sync Capabilities
 - **Intelligent Orchestrator**: Unified interface with smart tool selection (Git/Git-annex/rclone)
 - **Bidirectional Sync**: Two-way synchronization with rclone bisync
@@ -61,6 +71,13 @@ See [Setup Guide](docs/reference/03-development/setup-guide.md) for detailed ins
 - **Bundle Consolidation**: Automated monitoring and manual consolidation for optimal performance
 - **Critical Files Preservation**: Intelligent backup of .gitignored credentials and configs
 - **OneDrive Optimization**: Dramatically reduces API calls and rate limiting issues
+
+### Non-Git Archive System (NEW!)
+- **Compressed Archives**: tar.zst compression for optimal storage efficiency
+- **Source Path Tracking**: Manifest records exact origin paths for disaster recovery
+- **Incremental Updates**: Only archives changed directories, consolidates automatically
+- **Category Analysis**: Tracks file types and metadata for each archive
+- **Unified Restore**: Single interface restores both git repos and non-git archives
 
 ### Advanced Features
 - **Git-Annex Integration**: Large file handling with OneDrive backend
@@ -90,20 +107,50 @@ See [Setup Guide](docs/reference/03-development/setup-guide.md) for detailed ins
 - **OneDrive**: Current primary cloud backend
 - **system-config**: System configuration management
 
-## 📦 Git Bundle Sync Usage
+## 📦 Usage Examples
 
+### Git Bundle Sync
 ```bash
 # Sync all repositories to OneDrive as bundles
 ./scripts/bundle/git-bundle-sync.sh sync
 
 # Test a single repository
 ./scripts/bundle/git-bundle-sync.sh test ~/projects/path/to/repo
+```
 
-# Restore from bundle
-./scripts/bundle/restore-from-bundle.sh restore <repo_name> [target_dir]
+### Non-Git Archive Sync (NEW!)
+```bash
+# Archive large directories (backups, media, .local/bin)
+./scripts/bundle/non-git-bundle-sync.sh sync
 
-# Test restore to /tmp
-./scripts/bundle/restore-from-bundle.sh test <repo_name>
+# Archive specific directory
+./scripts/bundle/non-git-bundle-sync.sh sync-dir ~/backups
+
+# Check status
+./scripts/bundle/non-git-bundle-sync.sh status
+```
+
+### Dev Environment Sync (Enhanced!)
+```bash
+# Sync SSH keys, configs, secrets, scripts (23 new items added!)
+./scripts/core/dev-env-sync.sh push
+
+# Now backs up: .gnupg, .pki, .secrets, .cloudsync-secrets.conf, and more
+```
+
+### Unified Restore (NEW!)
+```bash
+# List all available bundles (git repos + non-git archives)
+./scripts/bundle/unified-restore.sh list
+
+# Restore git repository
+./scripts/bundle/unified-restore.sh restore Work/spaceful
+
+# Restore non-git archive
+./scripts/bundle/unified-restore.sh restore backups
+
+# Download from OneDrive first
+./scripts/bundle/unified-restore.sh download backups
 ```
 
 ## 🔔 Notifications & Monitoring
@@ -131,12 +178,21 @@ tail -f ~/.cloudsync/logs/hook-sync.log
 tail -f ~/.cloudsync/logs/restore-verification.log
 ```
 
-See [NOTIFICATIONS_AND_MONITORING.md](./docs/NOTIFICATIONS_AND_MONITORING.md) for complete setup guide.
-See [BUNDLE_CONSOLIDATION_GUIDE.md](./docs/BUNDLE_CONSOLIDATION_GUIDE.md) for consolidation details.
-See [GIT_HOOKS_AUTO_BACKUP.md](./docs/GIT_HOOKS_AUTO_BACKUP.md) for auto-backup setup.
+## 📚 Documentation
+
+**Start Here:**
+- **[COMPLETE_BACKUP_GUIDE.md](./docs/COMPLETE_BACKUP_GUIDE.md)** - Crystal-clear guide for ALL backup systems (NEW!)
+- **[QUICK_REFERENCE.md](./docs/QUICK_REFERENCE_CHEATSHEET.md)** - One-page cheat sheet (NEW!)
+
+**Detailed Guides:**
+- [CLOUDSYNC_USAGE_GUIDE.md](./docs/CLOUDSYNC_USAGE_GUIDE.md) - Orchestrator commands
+- [BUNDLE_CONSOLIDATION_GUIDE.md](./docs/BUNDLE_CONSOLIDATION_GUIDE.md) - Bundle management
+- [NOTIFICATIONS_AND_MONITORING.md](./docs/NOTIFICATIONS_AND_MONITORING.md) - Alerts & monitoring
+- [GIT_HOOKS_AUTO_BACKUP.md](./docs/GIT_HOOKS_AUTO_BACKUP.md) - Auto-backup setup
+- [TROUBLESHOOTING_REFERENCE.md](./docs/TROUBLESHOOTING_REFERENCE.md) - Common issues
 
 ---
 
-**Status**: Production Ready
+**Status**: Production Ready with 4-Tier Backup System
 **Maintainer**: cordlesssteve
-**Last Updated**: 2025-10-07
+**Last Updated**: 2025-10-15

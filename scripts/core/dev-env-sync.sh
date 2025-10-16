@@ -25,6 +25,12 @@ CRITICAL_PATHS=(
     "$HOME/.claude/templates"       # Custom Claude templates
     "$HOME/templates"               # Project templates
     "$HOME/.notez"                  # Personal notes and secrets
+    "$HOME/.gnupg"                  # GPG keys & trust database (CRITICAL)
+    "$HOME/.pki"                    # PKI certificates (CRITICAL)
+    "$HOME/.secrets"                # Secrets folder
+    "$HOME/media"                   # Media files
+    "$HOME/backups"                 # Manual backup archives
+    "$HOME/.local/bin"              # All custom scripts (not just Claude ones)
 )
 
 # CRITICAL FILES - Custom configurations
@@ -38,6 +44,19 @@ CRITICAL_FILES=(
     "$HOME/.claude/.credentials.json" # Claude API credentials
     "$HOME/.bash_aliases_backup"    # Backup shell aliases
     "$HOME/.bash_history"           # Command history (convenience)
+    "$HOME/.cloudsync-secrets.conf" # Centralized secrets (Restic, Neo4j, API keys)
+    "$HOME/.neo4j.env"              # Neo4j database credentials
+    "$HOME/.npmrc"                  # NPM registry authentication
+    "$HOME/.wsl-config"             # WSL configuration
+    "$HOME/.stignore"               # Syncthing ignore patterns
+    "$HOME/.packj.yaml"             # Supply chain security config
+    "$HOME/litellm_claude_code.yaml" # LiteLLM proxy config
+    "$HOME/litellm_claude_code_qwen3_backup.yaml" # LiteLLM backup config
+    "$HOME/litellm_test_config.yaml" # LiteLLM test config
+    "$HOME/.claude.json"            # Claude Code main config
+    "$HOME/.claude.json.backup"     # Claude Code config backup
+    "$HOME/.gitconfig.local"        # Git local/project-specific config
+    "$HOME/.anacrontab"             # Anacron job schedule
 )
 
 # CUSTOM SCRIPTS - Local scripts that can't be rebuilt from packages
@@ -55,6 +74,10 @@ SELECTIVE_CONFIG=(
     "$HOME/.config/git"             # Git credentials
     "$HOME/.config/syncthing"       # File synchronization config
     "$HOME/.config/claude-code"     # Claude Code IDE settings
+    "$HOME/.config/Code"            # VSCode settings (if exists)
+    "$HOME/.config/gcloud"          # Google Cloud credentials (if exists)
+    "$HOME/.config/aws"             # AWS credentials (if exists)
+    "$HOME/.config/azure"           # Azure credentials (if exists)
 )
 
 # ENHANCED CONFIG - Project-specific and development tool configs
