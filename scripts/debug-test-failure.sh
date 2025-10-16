@@ -4,9 +4,14 @@
 
 set -euo pipefail
 
+# Output to both terminal and file
+DEBUG_LOG="/tmp/cloudsync-debug-$(date +%Y%m%d-%H%M%S).log"
+exec > >(tee "$DEBUG_LOG") 2>&1
+
 echo "========================================"
 echo "CloudSync E2E Test Diagnostics"
 echo "========================================"
+echo "Debug log: $DEBUG_LOG"
 echo ""
 
 # Start the test service
@@ -122,12 +127,11 @@ echo "========================================"
 echo "✓ Diagnostics Complete"
 echo "========================================"
 echo ""
-echo "Quick Actions:"
-echo "  - View full test log:"
-echo "    sudo cat /home/csync-tester/.cloudsync-test/logs/test-run-$LATEST_RUN.log"
+echo "📄 Full diagnostics saved to: $DEBUG_LOG"
 echo ""
-echo "  - View full git log:"
-echo "    sudo cat /home/csync-tester/.cloudsync-test/logs/test-run-$LATEST_RUN-git.log"
+echo "Quick Actions:"
+echo "  - View this log: cat $DEBUG_LOG"
+echo "  - Share with Claude: Just tell Claude to read $DEBUG_LOG"
 echo ""
 echo "  - Retry test:"
 echo "    sudo systemctl start cloudsync-e2e-test.service"
