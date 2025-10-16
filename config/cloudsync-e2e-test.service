@@ -1,0 +1,36 @@
+[Unit]
+Description=CloudSync End-to-End Test
+Documentation=https://github.com/cordlesssteve/CloudSync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=csync-tester
+Group=csync-tester
+WorkingDirectory=/home/csync-tester/CloudSync
+
+# Update repository before running test
+ExecStartPre=/usr/bin/git -C /home/csync-tester/CloudSync pull origin main
+
+# Run the end-to-end test
+ExecStart=/home/csync-tester/CloudSync/tests/integration/e2e-real-onedrive.test.sh
+
+# Logging configuration
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cloudsync-e2e-test
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+# ProtectHome=yes conflicts with User= directive - removed
+ReadWritePaths=/home/csync-tester /tmp
+
+# Resource limits (prevent runaway tests)
+TimeoutStartSec=600
+MemoryLimit=2G
+
+[Install]
+WantedBy=multi-user.target

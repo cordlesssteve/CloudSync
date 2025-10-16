@@ -98,7 +98,8 @@ git commit -m "Develop branch setup" >> "$GIT_LOG" 2>&1
 
 git checkout main >> "$GIT_LOG" 2>&1
 
-cd - > /dev/null
+# Return to project root (cd - fails in systemd environment)
+cd "$PROJECT_ROOT"
 
 # Log repository statistics
 log_git_repo_stats "$TEST_WORK_DIR/source-repo" "Source Repository"
@@ -127,7 +128,7 @@ log_event "INFO" "STEP_2" "Running: git bundle create --all"
 if ! git -C "$TEST_WORK_DIR/source-repo" bundle create "$BUNDLE_FILE" --all >> "$GIT_LOG" 2>&1; then
     log_event "ERROR" "STEP_2" "Bundle creation failed"
     log_step_complete "STEP_2_BUNDLE_CREATE" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Get bundle statistics
@@ -145,7 +146,7 @@ else
     log_event "ERROR" "STEP_2" "Bundle verification failed"
     cat "$TEST_ARTIFACT_DIR/bundle-verify.txt" >> "$TEST_LOG_FILE"
     log_step_complete "STEP_2_BUNDLE_CREATE" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 log_step_complete "STEP_2_BUNDLE_CREATE" "SUCCESS" "$STEP_START"
@@ -178,7 +179,7 @@ if rclone sync "$TEST_WORK_DIR/upload-staging" "onedrive:$ONEDRIVE_TEST_PATH" \
 else
     log_event "ERROR" "STEP_3" "Bundle upload failed"
     log_step_complete "STEP_3_UPLOAD" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Verify upload by listing OneDrive path
@@ -208,7 +209,7 @@ if sudo -u csync-tester -H bash -c "
 else
     log_event "ERROR" "STEP_4" "Bundle download failed"
     log_step_complete "STEP_4_DOWNLOAD" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Verify downloaded file
@@ -218,7 +219,7 @@ DOWNLOADED_BUNDLE="$DOWNLOAD_DIR/test-repo.bundle"
 if [[ ! -f "$DOWNLOADED_BUNDLE" ]]; then
     log_event "ERROR" "STEP_4" "Downloaded bundle not found: $DOWNLOADED_BUNDLE"
     log_step_complete "STEP_4_DOWNLOAD" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Get download statistics
@@ -234,7 +235,7 @@ if [[ "$BUNDLE_SHA" == "$DOWNLOAD_SHA" ]]; then
 else
     log_event "ERROR" "STEP_4" "Checksum mismatch: original=$BUNDLE_SHA, downloaded=$DOWNLOAD_SHA"
     log_step_complete "STEP_4_DOWNLOAD" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Verify bundle size matches
@@ -243,7 +244,7 @@ if [[ "$BUNDLE_SIZE" == "$DOWNLOAD_SIZE" ]]; then
 else
     log_event "ERROR" "STEP_4" "Size mismatch: original=$BUNDLE_SIZE, downloaded=$DOWNLOAD_SIZE"
     log_step_complete "STEP_4_DOWNLOAD" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 log_step_complete "STEP_4_DOWNLOAD" "SUCCESS" "$STEP_START"
@@ -266,7 +267,7 @@ if sudo -u csync-tester -H bash -c "
 else
     log_event "ERROR" "STEP_5" "Repository restore failed"
     log_step_complete "STEP_5_RESTORE" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Verify restored repository integrity
@@ -278,7 +279,7 @@ if sudo -u csync-tester -H bash -c "
 else
     log_event "ERROR" "STEP_5" "Restored repository integrity check failed"
     log_step_complete "STEP_5_RESTORE" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Get restored repository statistics
@@ -311,7 +312,7 @@ if [[ "$ORIGINAL_COMMITS" == "$RESTORED_COMMITS" ]]; then
 else
     log_event "ERROR" "STEP_6" "Commit count mismatch: original=$ORIGINAL_COMMITS, restored=$RESTORED_COMMITS"
     log_step_complete "STEP_6_VERIFY" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Compare file structures
@@ -345,7 +346,7 @@ if sudo -u csync-tester -H bash -c "
 else
     log_event "ERROR" "STEP_7" "Restored repository cannot be read"
     log_step_complete "STEP_7_FINAL_VALIDATION" "FAILED" "$STEP_START"
-    return 1
+    exit 1
 fi
 
 # Verify branches exist

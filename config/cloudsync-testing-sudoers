@@ -1,0 +1,19 @@
+# CloudSync Testing - Sudoers Configuration
+# Allows cordlesssteve to manage CloudSync E2E test service without password
+#
+# Installation: sudo visudo -cf /tmp/cloudsync-testing-sudoers && sudo cp /tmp/cloudsync-testing-sudoers /etc/sudoers.d/cloudsync-testing
+
+# Allow starting the test service
+cordlesssteve ALL=(root) NOPASSWD: /bin/systemctl start cloudsync-e2e-test.service
+
+# Allow checking test status
+cordlesssteve ALL=(root) NOPASSWD: /bin/systemctl status cloudsync-e2e-test.service
+
+# Allow stopping tests (in case they hang)
+cordlesssteve ALL=(root) NOPASSWD: /bin/systemctl stop cloudsync-e2e-test.service
+
+# Allow reloading systemd after service file changes
+cordlesssteve ALL=(root) NOPASSWD: /bin/systemctl daemon-reload
+
+# Allow viewing test logs
+cordlesssteve ALL=(root) NOPASSWD: /bin/journalctl -u cloudsync-e2e-test.service *
