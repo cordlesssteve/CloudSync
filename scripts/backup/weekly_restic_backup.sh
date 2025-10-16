@@ -7,18 +7,17 @@
 # Configuration
 REPO_PATH="/mnt/c/Dev/wsl_backups/restic_repo"  # Symlinked to /mnt/d/wsl_backups/restic_repo
 BACKUP_SOURCE="$HOME"
-# Load password from config file
-CLOUDSYNC_CONFIG="${HOME}/projects/Utility/LOGISTICAL/CloudSync/config/cloudsync.conf"
-if [[ -f "$CLOUDSYNC_CONFIG" ]]; then
-    source "$CLOUDSYNC_CONFIG"
-    PASSWORD="$RESTIC_PASSWORD"
-else
-    echo "ERROR: CloudSync config not found at $CLOUDSYNC_CONFIG"
-    exit 1
-fi
 LOG_FILE="$HOME/.backup_logs/restic_weekly.log"
 STATUS_FILE="$HOME/.backup_status"
 RESTIC_BIN="$HOME/.local/bin/restic"
+
+# Load secrets from secure config file
+if [ -f "$HOME/.cloudsync-secrets.conf" ]; then
+    source "$HOME/.cloudsync-secrets.conf"
+else
+    echo "ERROR: Secrets file not found at $HOME/.cloudsync-secrets.conf" >&2
+    exit 1
+fi
 
 # Ensure PATH includes local bin
 export PATH="$HOME/.local/bin:$PATH"
@@ -42,13 +41,13 @@ update_status() {
 log_message "Starting weekly Restic backup"
 update_status "RUNNING" "Backup in progress"
 
-# Set password for restic
-export RESTIC_PASSWORD="$PASSWORD"
+# Set password for restic (loaded from secrets file)
 export RESTIC_REPOSITORY="$REPO_PATH"
 
 # Run backup with exclusions
 log_message "Running restic backup with exclusions"
 $RESTIC_BIN backup "$BACKUP_SOURCE" \
+    --exclude="$HOME/projects" \
     --exclude="$HOME/.cache" \
     --exclude="$HOME/node_modules" \
     --exclude="$HOME/.npm" \
@@ -58,6 +57,8 @@ $RESTIC_BIN backup "$BACKUP_SOURCE" \
     --exclude="$HOME/.venv" \
     --exclude="$HOME/env" \
     --exclude="$HOME/venv" \
+    --exclude="$HOME/temp" \
+    --exclude="$HOME/media" \
     --exclude="*/node_modules" \
     --exclude="*/dist" \
     --exclude="*/build" \

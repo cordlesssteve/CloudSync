@@ -20,17 +20,27 @@ case "$1" in
 CRITICAL_PATHS=(
     "$HOME/.ssh"                    # SSH keys, configs (CRITICAL)
     "$HOME/scripts"                 # Custom automation scripts
-    "$HOME/mcp-servers"             # Custom MCP server code
+    # "$HOME/mcp-servers"           # Now a Git repo, backed up to GitHub instead
     "$HOME/docs"                    # Documentation and notes
     "$HOME/.claude/templates"       # Custom Claude templates
     "$HOME/templates"               # Project templates
     "$HOME/.notez"                  # Personal notes and secrets
-    "$HOME/.gnupg"                  # GPG keys & trust database (CRITICAL)
-    "$HOME/.pki"                    # PKI certificates (CRITICAL)
-    "$HOME/.secrets"                # Secrets folder
-    "$HOME/media"                   # Media files
-    "$HOME/backups"                 # Manual backup archives
-    "$HOME/.local/bin"              # All custom scripts (not just Claude ones)
+)
+
+# ADDITIONAL VALUABLE DATA - Previously Restic-only, now backed up to OneDrive
+# Total: ~7GB addition (still only 0.7% of 1TB OneDrive)
+ADDITIONAL_PATHS=(
+    "$HOME/Sync"                    # Syncthing files (4.2GB)
+    "$HOME/.gnupg"                  # GPG keys (CRITICAL)
+    "$HOME/.pki"                    # Certificates
+    "$HOME/Andy_Files"              # Personal files
+    "$HOME/system-state"            # System snapshots for rebuild
+    "$HOME/bin"                     # Custom user binaries
+    "$HOME/.system-config"          # System configuration
+    "$HOME/backups"                 # Manual backups
+    "$HOME/lib"                     # User libraries
+    "$HOME/.wsl-config"             # WSL configuration
+    "$HOME/.claude-trusted"         # Claude trusted configurations
 )
 
 # CRITICAL FILES - Custom configurations
@@ -44,19 +54,9 @@ CRITICAL_FILES=(
     "$HOME/.claude/.credentials.json" # Claude API credentials
     "$HOME/.bash_aliases_backup"    # Backup shell aliases
     "$HOME/.bash_history"           # Command history (convenience)
-    "$HOME/.cloudsync-secrets.conf" # Centralized secrets (Restic, Neo4j, API keys)
-    "$HOME/.neo4j.env"              # Neo4j database credentials
-    "$HOME/.npmrc"                  # NPM registry authentication
-    "$HOME/.wsl-config"             # WSL configuration
-    "$HOME/.stignore"               # Syncthing ignore patterns
-    "$HOME/.packj.yaml"             # Supply chain security config
-    "$HOME/litellm_claude_code.yaml" # LiteLLM proxy config
-    "$HOME/litellm_claude_code_qwen3_backup.yaml" # LiteLLM backup config
-    "$HOME/litellm_test_config.yaml" # LiteLLM test config
-    "$HOME/.claude.json"            # Claude Code main config
-    "$HOME/.claude.json.backup"     # Claude Code config backup
-    "$HOME/.gitconfig.local"        # Git local/project-specific config
-    "$HOME/.anacrontab"             # Anacron job schedule
+    "$HOME/.claude.json"            # Claude IDE state
+    "$HOME/.gitconfig.local"        # Local git overrides
+    "$HOME/.gitignore"              # Global gitignore patterns
 )
 
 # CUSTOM SCRIPTS - Local scripts that can't be rebuilt from packages
@@ -74,10 +74,6 @@ SELECTIVE_CONFIG=(
     "$HOME/.config/git"             # Git credentials
     "$HOME/.config/syncthing"       # File synchronization config
     "$HOME/.config/claude-code"     # Claude Code IDE settings
-    "$HOME/.config/Code"            # VSCode settings (if exists)
-    "$HOME/.config/gcloud"          # Google Cloud credentials (if exists)
-    "$HOME/.config/aws"             # AWS credentials (if exists)
-    "$HOME/.config/azure"           # Azure credentials (if exists)
 )
 
 # ENHANCED CONFIG - Project-specific and development tool configs
@@ -97,6 +93,33 @@ for path in "${CRITICAL_PATHS[@]}"; do
         dir_name=$(basename "$path")
         echo "Syncing $path -> onedrive:DevEnvironment/$HOSTNAME/essentials/$dir_name/"
         rclone sync "$path" "onedrive:DevEnvironment/$HOSTNAME/essentials/$dir_name" \
+            --progress \
+            --exclude "*.tmp" \
+            --exclude "*.log" \
+            --exclude "node_modules/" \
+            --exclude ".git/" \
+            --exclude "__pycache__/" \
+            --exclude "*.pyc" \
+            --exclude "venv/" \
+            --exclude ".venv/" \
+            --exclude "env/" \
+            --exclude ".env/" \
+            --exclude "*.egg-info/" \
+            --exclude "dist/" \
+            --exclude "build/" \
+            --exclude ".pytest_cache/"
+    else
+        echo "⚠️  Skipping $path (not found)"
+    fi
+done
+
+echo ""
+echo "📦 Syncing additional valuable data..."
+for path in "${ADDITIONAL_PATHS[@]}"; do
+    if [ -d "$path" ]; then
+        dir_name=$(basename "$path")
+        echo "Syncing $path -> onedrive:DevEnvironment/$HOSTNAME/valuable/$dir_name/"
+        rclone sync "$path" "onedrive:DevEnvironment/$HOSTNAME/valuable/$dir_name" \
             --progress \
             --exclude "*.tmp" \
             --exclude "*.log" \
@@ -259,11 +282,9 @@ rm "/tmp/rebuild-instructions-$TIMESTAMP.md"
         echo ""
 
         # Generate change report
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        REPORT_SCRIPT="$SCRIPT_DIR/../monitoring/generate-sync-report.sh"
-        if [ -f "$REPORT_SCRIPT" ]; then
+        if [ -f "$HOME/scripts/cloud/generate-sync-report.sh" ]; then
             echo "📊 Generating sync change report..."
-            "$REPORT_SCRIPT"
+            "$HOME/scripts/cloud/generate-sync-report.sh"
         fi
 
         echo ""

@@ -8,7 +8,10 @@ CLOUDSYNC_PROJECT="${CLOUDSYNC_PROJECT:-$HOME/projects/Utility/LOGISTICAL/CloudS
 METRICS_FILE="/var/lib/prometheus/node-exporter/cloudsync.prom"
 TEMP_FILE=$(mktemp)
 
-# Helper: Add metric
+# Track which metrics have had HELP/TYPE written
+declare -A METRICS_SEEN
+
+# Helper: Add metric with proper Prometheus format
 add_metric() {
     local help="$1"
     local type="$2"
@@ -16,14 +19,19 @@ add_metric() {
     local value="$4"
     local labels="${5:-}"
 
-    echo "# HELP $name $help" >> "$TEMP_FILE"
-    echo "# TYPE $name $type" >> "$TEMP_FILE"
+    # Only write HELP and TYPE once per metric name
+    if [[ -z "${METRICS_SEEN[$name]:-}" ]]; then
+        echo "# HELP $name $help" >> "$TEMP_FILE"
+        echo "# TYPE $name $type" >> "$TEMP_FILE"
+        METRICS_SEEN[$name]=1
+    fi
+
+    # Always write the metric value
     if [[ -n "$labels" ]]; then
         echo "${name}{${labels}} ${value}" >> "$TEMP_FILE"
     else
         echo "${name} ${value}" >> "$TEMP_FILE"
     fi
-    echo "" >> "$TEMP_FILE"
 }
 
 # ==========================================
@@ -44,20 +52,22 @@ collect_bundle_metrics() {
     local full_count=$(find "$bundle_dir" -name "*-full.bundle" 2>/dev/null | wc -l)
     local incremental_count=$(find "$bundle_dir" -name "*-incremental-*.bundle" 2>/dev/null | wc -l)
 
-    add_metric "Full git bundles" "gauge" "cloudsync_bundle_total" "$full_count" "type=\"full\""
-    add_metric "Incremental git bundles" "gauge" "cloudsync_bundle_total" "$incremental_count" "type=\"incremental\""
+    add_metric "Git bundles tracked" "gauge" "cloudsync_bundle_total" "$full_count" "type=\"full\""
+    add_metric "Git bundles tracked" "gauge" "cloudsync_bundle_total" "$incremental_count" "type=\"incremental\""
+    echo "" >> "$TEMP_FILE"
 
     # Bundle health (1 if any bundles exist)
     if [[ $((full_count + incremental_count)) -gt 0 ]]; then
-        add_metric "CloudSync bundle health" "gauge" "cloudsync_health_status" "1" "component=\"bundles\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "1" "component=\"bundles\""
     else
-        add_metric "CloudSync bundle health" "gauge" "cloudsync_health_status" "0" "component=\"bundles\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "0" "component=\"bundles\""
     fi
 
     # Last sync timestamp (from CloudSync logs)
     if [[ -f "$HOME/.cloudsync/logs/bundle-sync.log" ]]; then
         local last_sync=$(stat -c%Y "$HOME/.cloudsync/logs/bundle-sync.log" 2>/dev/null || echo "0")
         add_metric "Last bundle sync timestamp (Unix)" "gauge" "cloudsync_bundle_last_sync_timestamp" "$last_sync"
+        echo "" >> "$TEMP_FILE"
     fi
 }
 
@@ -69,7 +79,8 @@ collect_restic_metrics() {
     local restic_repo="/mnt/d/wsl_backups/restic_repo"
 
     if [[ ! -d "$restic_repo" ]]; then
-        add_metric "Restic repository exists" "gauge" "cloudsync_health_status" "0" "component=\"restic\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "0" "component=\"restic\""
+        echo "" >> "$TEMP_FILE"
         return
     fi
 
@@ -86,11 +97,13 @@ collect_restic_metrics() {
             local last_backup=$(stat -c%Y "$HOME/.backup_logs/restic_weekly.log" 2>/dev/null || echo "0")
             add_metric "Last Restic backup timestamp (Unix)" "gauge" "cloudsync_restic_last_backup_timestamp" "$last_backup"
         fi
+        echo "" >> "$TEMP_FILE"
 
-        add_metric "Restic health status" "gauge" "cloudsync_health_status" "1" "component=\"restic\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "1" "component=\"restic\""
     else
-        add_metric "Restic health status (password not set)" "gauge" "cloudsync_health_status" "0" "component=\"restic\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "0" "component=\"restic\""
     fi
+    echo "" >> "$TEMP_FILE"
 }
 
 # ==========================================
@@ -100,7 +113,8 @@ collect_restic_metrics() {
 collect_sync_metrics() {
     # Check rclone availability
     if ! command -v rclone &> /dev/null; then
-        add_metric "Rclone health status (not installed)" "gauge" "cloudsync_health_status" "0" "component=\"rclone\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "0" "component=\"rclone\""
+        echo "" >> "$TEMP_FILE"
         return
     fi
 
@@ -108,9 +122,10 @@ collect_sync_metrics() {
     if rclone about onedrive: --json &> /dev/null 2>&1; then
         local used_bytes=$(rclone about onedrive: --json 2>/dev/null | jq -r '.used // 0')
         add_metric "OneDrive storage used (bytes)" "gauge" "cloudsync_storage_onedrive_used_bytes" "$used_bytes"
-        add_metric "Rclone health status" "gauge" "cloudsync_health_status" "1" "component=\"rclone\""
+        echo "" >> "$TEMP_FILE"
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "1" "component=\"rclone\""
     else
-        add_metric "Rclone health status (config error)" "gauge" "cloudsync_health_status" "0" "component=\"rclone\""
+        add_metric "CloudSync component health status" "gauge" "cloudsync_health_status" "0" "component=\"rclone\""
     fi
 
     # Local managed directory size
@@ -118,6 +133,7 @@ collect_sync_metrics() {
     if [[ -d "$managed_dir" ]]; then
         local local_size=$(du -sb "$managed_dir" 2>/dev/null | awk '{print $1}' || echo "0")
         add_metric "Local managed directory size (bytes)" "gauge" "cloudsync_storage_local_managed_bytes" "$local_size"
+        echo "" >> "$TEMP_FILE"
     fi
 }
 
@@ -147,11 +163,13 @@ main() {
     # Atomic write to metrics file
     mkdir -p "$(dirname "$METRICS_FILE")" 2>/dev/null || true
     if mv "$TEMP_FILE" "$METRICS_FILE" 2>/dev/null; then
+        chmod 644 "$METRICS_FILE" 2>/dev/null || true
         echo "✓ CloudSync metrics exported to $METRICS_FILE"
     else
         # Fallback to temp location
         LOCAL_METRICS="/tmp/cloudsync-metrics.prom"
         if mv "$TEMP_FILE" "$LOCAL_METRICS" 2>/dev/null; then
+            chmod 644 "$LOCAL_METRICS" 2>/dev/null || true
             echo "⚠ Exported to $LOCAL_METRICS (Prometheus directory not available)"
         else
             echo "ERROR: Failed to write metrics file" >&2
