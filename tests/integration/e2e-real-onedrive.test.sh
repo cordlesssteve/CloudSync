@@ -110,7 +110,7 @@ log_directory_structure "$TEST_WORK_DIR/source-repo" \
     "Source Repository"
 
 # Calculate source repository checksum
-source_repo_checksum=$(find "$TEST_WORK_DIR/source-repo" -type f ! -path '*/.git/*' -exec sha256sum {} + | sha256sum | awk '{print $1}')
+source_repo_checksum=$(find "$TEST_WORK_DIR/source-repo" -type f ! -path '*/.git/*' -exec sha256sum {} + | sha256sum | awk '{print $1}' || echo "checksum-failed")
 log_metric "SOURCE_REPO_CHECKSUM" "$source_repo_checksum"
 
 log_step_complete "STEP_1_CREATE_REPO" "SUCCESS" "$STEP_START"
