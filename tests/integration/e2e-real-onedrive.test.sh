@@ -64,7 +64,7 @@ mkdir -p "$TEST_WORK_DIR/source-repo"
 cd "$TEST_WORK_DIR/source-repo"
 
 log_event "INFO" "STEP_1" "Initializing git repository"
-git init > "$GIT_LOG" 2>&1
+git init --initial-branch=main > "$GIT_LOG" 2>&1
 git config user.email "csync-tester@cloudsync.local"
 git config user.name "CloudSync Tester"
 
