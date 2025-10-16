@@ -22,7 +22,7 @@ StandardError=journal
 SyslogIdentifier=cloudsync-e2e-test
 
 # Security hardening
-PrivateTmp=yes
+# PrivateTmp=yes removed - test script needs consistent /tmp access
 NoNewPrivileges=yes
 ProtectSystem=strict
 # ProtectHome=yes conflicts with User= directive - removed
@@ -30,7 +30,7 @@ ReadWritePaths=/home/csync-tester /tmp
 
 # Resource limits (prevent runaway tests)
 TimeoutStartSec=600
-MemoryLimit=2G
+MemoryMax=2G
 
 [Install]
 WantedBy=multi-user.target
