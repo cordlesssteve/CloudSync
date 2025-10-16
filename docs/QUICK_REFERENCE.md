@@ -28,11 +28,11 @@ cloudsync rollback <file> <commit>
 
 | File Type | Size | Tool | Storage Location |
 |-----------|------|------|------------------|
-| Text files | < 10MB | **Git** | `~/cloudsync-managed/documents/` |
-| Config files | Any size | **Git** | `~/cloudsync-managed/configs/` |
-| Binary files | > 1MB | **Git-Annex** | `~/cloudsync-managed/media/` |
-| Large files | > 10MB | **Git-Annex** | `~/cloudsync-managed/projects/` |
-| Archives | Any size | **Git-Annex** | `~/cloudsync-managed/archives/` |
+| Text files | < 10MB | **Git** | `~/csync-managed/documents/` |
+| Config files | Any size | **Git** | `~/csync-managed/configs/` |
+| Binary files | > 1MB | **Git-Annex** | `~/csync-managed/media/` |
+| Large files | > 10MB | **Git-Annex** | `~/csync-managed/projects/` |
+| Archives | Any size | **Git-Annex** | `~/csync-managed/archives/` |
 
 ---
 
@@ -66,7 +66,7 @@ cloudsync analyze file.bin     # Preview decision (no action)
 ## 🏗️ Directory Structure
 
 ```
-~/cloudsync-managed/           # Managed Storage Root
+~/csync-managed/           # Managed Storage Root
 ├── configs/      (Git)        # Configuration files
 ├── documents/    (Git)        # Documents and text files
 ├── scripts/      (Git)        # Scripts and code

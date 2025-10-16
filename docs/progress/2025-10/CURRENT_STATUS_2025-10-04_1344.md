@@ -50,7 +50,7 @@
 1. **✅ Intelligent Orchestrator Built** - Single interface coordinating Git/Git-annex/rclone
 2. **✅ Unified Versioning Implemented** - Git-based versioning for all file types
 3. **✅ Decision Engine Created** - Smart tool selection based on file context
-4. **✅ Managed Storage Designed** - ~/cloudsync-managed/ with Git foundation
+4. **✅ Managed Storage Designed** - ~/csync-managed/ with Git foundation
 5. **✅ Unified Interface Complete** - cloudsync add/sync/rollback commands operational
 
 ### Key Files Created (2025-10-04):

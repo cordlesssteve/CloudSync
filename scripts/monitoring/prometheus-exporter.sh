@@ -129,7 +129,7 @@ collect_sync_metrics() {
     fi
 
     # Local managed directory size
-    local managed_dir="$HOME/cloudsync-managed"
+    local managed_dir="$HOME/csync-managed"
     if [[ -d "$managed_dir" ]]; then
         local local_size=$(du -sb "$managed_dir" 2>/dev/null | awk '{print $1}' || echo "0")
         add_metric "Local managed directory size (bytes)" "gauge" "cloudsync_storage_local_managed_bytes" "$local_size"

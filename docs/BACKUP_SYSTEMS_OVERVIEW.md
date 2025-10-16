@@ -49,7 +49,7 @@ Each repository creates 4-6 files:
 **Script:** `~/scripts/cloud/cloudsync-auto-backup.sh`
 
 ### What Gets Backed Up:
-✅ **All files in `~/cloudsync-managed/`**
+✅ **All files in `~/csync-managed/`**
 - Documents, media, configuration files
 - Any non-git-repo content you want versioned
 - Git commits changes automatically before sync
@@ -63,7 +63,7 @@ Each repository creates 4-6 files:
 `onedrive:DevEnvironment/managed/`
 
 ### Local Storage:
-`~/cloudsync-managed/` (Git repository)
+`~/csync-managed/` (Git repository)
 
 ### Logs:
 `~/.cloudsync/logs/auto-backup.log`
@@ -99,7 +99,7 @@ Each repository creates 4-6 files:
 
 | Feature | Git Bundle Sync | Managed Storage | Weekly Suite |
 |---------|----------------|-----------------|--------------|
-| **Target** | Git repositories | ~/cloudsync-managed/ | System + managed |
+| **Target** | Git repositories | ~/csync-managed/ | System + managed |
 | **Frequency** | Daily (1 AM) | Daily (3 AM) | Weekly (Sun 2:30 AM) |
 | **Method** | Git bundles | rclone bidirectional | Restic + rclone |
 | **Incremental** | Yes (medium/large repos) | Yes (changed files only) | Restic incremental |

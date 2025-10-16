@@ -114,7 +114,7 @@ GIT_ANNEX_DIRS="projects:archives:media"
 
 #### Managed Storage Structure
 ```
-~/cloudsync-managed/
+~/csync-managed/
 ├── .git/                           # Git repository
 │   ├── objects/                    # Git objects
 │   ├── refs/                       # Git references

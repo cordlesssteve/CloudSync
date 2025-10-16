@@ -11,6 +11,12 @@
 
 **CloudSync now includes git bundle sync** to dramatically reduce OneDrive API calls by syncing repositories as single bundle files instead of thousands of individual files. This addresses OneDrive rate limiting issues.
 
+## CURRENT SESSION: NAMING REFACTOR (2025-10-16)
+
+**Renaming `csync-managed` → `csync-managed`** for clarity:
+- **cloudsync** = CloudSync repository (the full tool)
+- **csync-managed** = Managed storage directory (upload folder)
+
 ## What's Actually Done ✅ (ALL COMPLETED - PREVIOUS SESSIONS)
 - [x] Project structure created with proper directory organization
 - [x] Migrated existing sync scripts from `/scripts/cloud/`
@@ -31,7 +37,7 @@
 - [x] **Intelligent Orchestrator** - Complete unified interface system
 - [x] **Unified Versioning System** - Git-based versioning for all file types
 - [x] **Decision Engine** - Smart routing between Git/Git-annex/rclone
-- [x] **Managed Storage** - ~/cloudsync-managed/ with Git foundation
+- [x] **Managed Storage** - ~/csync-managed/ with Git foundation
 - [x] **Conflict Resolution System** - 100% reliable with all fixes implemented
 - [x] **Complete Documentation Suite** - 4 comprehensive guides for all scenarios
 

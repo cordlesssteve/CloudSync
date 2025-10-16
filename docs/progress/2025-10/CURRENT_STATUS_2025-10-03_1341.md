@@ -49,7 +49,7 @@
 1. **Build Intelligent Orchestrator** - Single interface for Git/Git-annex/rclone
 2. **Implement Unified Versioning** - Git-based versioning for all operations
 3. **Create Decision Engine** - Smart tool selection based on context
-4. **Design Managed Storage** - ~/cloudsync-managed/ with Git foundation
+4. **Design Managed Storage** - ~/csync-managed/ with Git foundation
 5. **Unified Interface** - cloudsync add/sync/rollback commands
 
 ## Component/Feature Status Matrix

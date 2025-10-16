@@ -32,7 +32,7 @@
 - [x] **Intelligent Orchestrator** - Complete unified interface system
 - [x] **Unified Versioning System** - Git-based versioning for all file types
 - [x] **Decision Engine** - Smart routing between Git/Git-annex/rclone
-- [x] **Managed Storage** - ~/cloudsync-managed/ with Git foundation
+- [x] **Managed Storage** - ~/csync-managed/ with Git foundation
 - [x] **Conflict Resolution System** - 100% reliable with all fixes implemented
 - [x] **Complete Documentation Suite** - 4 comprehensive guides for all scenarios
 

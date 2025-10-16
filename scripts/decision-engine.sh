@@ -185,7 +185,7 @@ decide_tool() {
             fi
         else
             # Not in a git repository
-            if [[ "$context" == "managed" ]] || [[ "$file_path" == *"/cloudsync-managed/"* ]]; then
+            if [[ "$context" == "managed" ]] || [[ "$file_path" == *"/csync-managed/"* ]]; then
                 # File should be in managed storage
                 decision="managed-init"
                 reason="File needs managed storage initialization"

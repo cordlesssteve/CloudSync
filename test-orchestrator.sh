@@ -57,12 +57,12 @@ echo ""
 echo "🏗️ Test 3: Managed Storage Test"
 echo "------------------------------"
 
-if [[ -d "$HOME/cloudsync-managed" ]]; then
+if [[ -d "$HOME/csync-managed" ]]; then
     echo "Managed storage already exists, showing status:"
     ./scripts/managed-storage.sh status
 else
     echo "Initializing managed storage (dry run simulation):"
-    echo "This would create: $HOME/cloudsync-managed/"
+    echo "This would create: $HOME/csync-managed/"
     echo "  📁 Git directories: configs, documents, scripts"
     echo "  📦 Git-Annex directories: projects, archives, media"
     echo "  ☁️  Remote: onedrive:DevEnvironment/managed"

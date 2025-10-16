@@ -39,7 +39,7 @@ cloudsync managed-add file.txt
 cloudsync add /full/path/to/file.txt
 
 # Check disk space
-df -h ~/cloudsync-managed
+df -h ~/csync-managed
 ```
 
 ---
@@ -57,7 +57,7 @@ df -h ~/cloudsync-managed
 rclone lsd onedrive:
 
 # Check Git-Annex remote
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git annex testremote onedrive
 
 # Check rclone config
@@ -73,7 +73,7 @@ ping 8.8.8.8
 rclone config reconnect onedrive
 
 # Manual Git sync
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git pull --rebase
 git push
 
@@ -99,7 +99,7 @@ rclone mkdir onedrive:DevEnvironment/managed
 #### Diagnosis
 ```bash
 # Check Git repository status
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git status
 git log --oneline
 
@@ -117,12 +117,12 @@ git annex find filename.bin
 cloudsync add filename.txt
 
 # Fix Git repository issues
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git fsck
 git gc
 
 # Reinitialize if corrupted
-mv ~/cloudsync-managed ~/cloudsync-managed.backup
+mv ~/csync-managed ~/csync-managed.backup
 cloudsync managed-init
 # Then re-add files from backup
 ```
@@ -139,11 +139,11 @@ cloudsync managed-init
 #### Diagnosis
 ```bash
 # Check disk space
-df -h ~/cloudsync-managed
+df -h ~/csync-managed
 df -h ~/.git/annex
 
 # Check Git-Annex status
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git annex status
 
 # Check content availability
@@ -309,7 +309,7 @@ find ~/.cloudsync/logs -name "*.log" -mtime +30
 ### Git Repository Issues
 ```bash
 # Check repository integrity
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git fsck --full
 
 # Fix common Git issues
@@ -365,16 +365,16 @@ rclone config reconnect onedrive
 ### 1. **Complete System Reset**
 ```bash
 # Backup current state
-cp -r ~/cloudsync-managed ~/cloudsync-managed.emergency-backup
-tar -czf ~/cloudsync-backup-$(date +%Y%m%d).tar.gz ~/cloudsync-managed
+cp -r ~/csync-managed ~/csync-managed.emergency-backup
+tar -czf ~/cloudsync-backup-$(date +%Y%m%d).tar.gz ~/csync-managed
 
 # Reinitialize system
-rm -rf ~/cloudsync-managed
+rm -rf ~/csync-managed
 cloudsync managed-init
 
 # Restore files (without history)
-cp -r ~/cloudsync-managed.emergency-backup/* ~/cloudsync-managed/
-cloudsync add ~/cloudsync-managed/*/*
+cp -r ~/csync-managed.emergency-backup/* ~/csync-managed/
+cloudsync add ~/csync-managed/*/*
 ```
 
 ### 2. **Remote Storage Corruption**
@@ -392,7 +392,7 @@ cloudsync sync . push
 ### 3. **Lost Version History**
 ```bash
 # Check Git reflog
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git reflog
 
 # Recover from reflog
@@ -424,7 +424,7 @@ git pull origin main --allow-unrelated-histories
 - [ ] Test recovery procedures
 
 ### Before Major Changes
-- [ ] Create backup: `tar -czf ~/cloudsync-backup-$(date +%Y%m%d).tar.gz ~/cloudsync-managed`
+- [ ] Create backup: `tar -czf ~/cloudsync-backup-$(date +%Y%m%d).tar.gz ~/csync-managed`
 - [ ] Test with `CLOUDSYNC_DRY_RUN=true`
 - [ ] Verify remote authentication
 - [ ] Document configuration changes

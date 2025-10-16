@@ -144,14 +144,14 @@ cp -r ~/projects/Utility/LOGISTICAL/Sink/temp/* \
 
 # Move environment comparison data to managed storage
 cp -r ~/projects/Utility/LOGISTICAL/Sink/environment-comparison \
-      ~/cloudsync-managed/environment-analysis/
+      ~/csync-managed/environment-analysis/
 
 cp -r ~/projects/Utility/LOGISTICAL/Sink/env-audit \
-      ~/cloudsync-managed/environment-analysis/
+      ~/csync-managed/environment-analysis/
 
 # Move config backups to CloudSync backup directory
 mv ~/projects/Utility/LOGISTICAL/Sink/*.tar.gz \
-   ~/cloudsync-managed/config-backups/
+   ~/csync-managed/config-backups/
 ```
 
 #### Step 1.3: Preserve Sink Git History
@@ -387,7 +387,7 @@ git commit -m "Rollback Sink merger"
 1. All Sink data accessible in CloudSync
 2. `transfer` CLI command works from any directory
 3. Quick-transfer workflow functions identically to Sink
-4. Environment comparison data in cloudsync-managed/
+4. Environment comparison data in csync-managed/
 5. Config backups integrated into CloudSync backup system
 6. Original Sink repository archived
 7. Documentation updated (CloudSync README, global docs)

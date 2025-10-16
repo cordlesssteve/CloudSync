@@ -27,7 +27,7 @@
 - **Status:** Active
 - **Tech Stack:** Bash, rclone, git-annex
 - **Repository:** https://github.com/cordlesssteve/CloudSync.git
-- **Data Directory:** `~/cloudsync-managed/` (synced to OneDrive, NOT git-tracked)
+- **Data Directory:** `~/csync-managed/` (synced to OneDrive, NOT git-tracked)
 
 ## 🚨 MANDATORY READING ORDER 🚨
 Before starting ANY development work, Claude MUST read these files in order:
@@ -56,7 +56,7 @@ Cloud synchronization service management using rclone for OneDrive sync and cust
 
 **Key Components:**
 - **Development Repository:** This git repo (scripts, monitoring, orchestration)
-- **Data Directory:** `~/cloudsync-managed/` - Files being synced to cloud
+- **Data Directory:** `~/csync-managed/` - Files being synced to cloud
 - **Backup Scripts:** `scripts/backup/` - System-level backup automation
 
 ## Backup Script Locations & D: Drive Migration
@@ -68,7 +68,7 @@ Cloud synchronization service management using rclone for OneDrive sync and cust
 | Location | Purpose | Git Tracked | Used By |
 |----------|---------|-------------|---------|
 | `~/scripts/system/` | **Active cron jobs** | ❌ No | System cron |
-| `~/cloudsync-managed/scripts/system/` | **Data backup** | ❌ No | OneDrive sync |
+| `~/csync-managed/scripts/system/` | **Data backup** | ❌ No | OneDrive sync |
 | `~/projects/.../CloudSync/scripts/backup/` | **Development** | ✅ Yes | This repo |
 
 ### D: Drive Migration (Oct 2025)
@@ -112,7 +112,7 @@ vim scripts/backup/quarterly_tar_backup.sh
 cp scripts/backup/*.sh ~/scripts/system/
 
 # 3. Copy to data directory for cloud sync
-cp scripts/backup/*.sh ~/cloudsync-managed/scripts/system/
+cp scripts/backup/*.sh ~/csync-managed/scripts/system/
 
 # 4. Commit changes
 git add scripts/backup/
@@ -120,7 +120,7 @@ git commit -m "Update backup scripts"
 git push
 
 # 5. Sync to OneDrive
-rclone sync ~/cloudsync-managed/ onedrive:cloudsync-managed
+rclone sync ~/csync-managed/ onedrive:csync-managed
 ```
 
 ### Check Backup Status
@@ -142,10 +142,10 @@ tail -50 ~/.backup_logs/restic_weekly.log
 ### Script Location Confusion
 - **Problem:** Three different script locations can get out of sync
 - **Solution:** Always update all three locations when modifying backup scripts
-- **Order:** Edit in repo → Copy to `~/scripts/` → Copy to `~/cloudsync-managed/` → Commit & sync
+- **Order:** Edit in repo → Copy to `~/scripts/` → Copy to `~/csync-managed/` → Commit & sync
 
 ### CloudSync Auto-Backup Broken
-- **Issue:** `cloudsync-auto-backup.sh` expects git repo in `~/cloudsync-managed/`
+- **Issue:** `cloudsync-auto-backup.sh` expects git repo in `~/csync-managed/`
 - **Status:** Cron job failing since Oct 6, 2025
 - **Workaround:** Use manual `rclone sync` commands
 - **Resolution:** Needs script update or removal from cron

@@ -107,9 +107,9 @@ CloudSync has evolved from a sync tool to an **intelligent orchestrator** that c
 
 ## Managed Storage Structure
 
-### Local Storage (~/cloudsync-managed/)
+### Local Storage (~/csync-managed/)
 ```
-~/cloudsync-managed/                    # Main managed Git repository
+~/csync-managed/                    # Main managed Git repository
 ├── .git/                              # Git version control
 ├── configs/                           # Configuration files
 │   ├── .ssh/                          # SSH keys and config

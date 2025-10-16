@@ -59,11 +59,11 @@ Remote: onedrive:DevEnvironment/
 
 ### 1. Initialize Managed Storage
 ```bash
-# Create ~/cloudsync-managed/ with Git foundation
+# Create ~/csync-managed/ with Git foundation
 cloudsync managed-init
 
 # Creates directory structure:
-# ~/cloudsync-managed/
+# ~/csync-managed/
 # ├── configs/    (Git - configuration files)
 # ├── documents/  (Git - documents and text)
 # ├── scripts/    (Git - scripts and code)
@@ -136,7 +136,7 @@ cloudsync status document.txt
 # Output:
 # 📄 File: document.txt
 # 🔧 Tool: Git
-# 📁 Location: ~/cloudsync-managed/documents/
+# 📁 Location: ~/csync-managed/documents/
 # 📊 Size: 2.3KB
 # 🕒 Last Modified: 2025-10-04 14:30:22
 # 📜 Version History: 3 commits
@@ -180,7 +180,7 @@ cloudsync analyze large-video.mp4
 
 ```bash
 cloudsync managed-init
-# Creates ~/cloudsync-managed/ with:
+# Creates ~/csync-managed/ with:
 # - Git repository structure
 # - Git-Annex initialization
 # - Category directories
@@ -200,7 +200,7 @@ cloudsync managed-add document.pdf
 
 ```bash
 cloudsync managed-sync
-# Syncs ~/cloudsync-managed/ to onedrive:DevEnvironment/managed/
+# Syncs ~/csync-managed/ to onedrive:DevEnvironment/managed/
 ```
 
 #### `cloudsync managed-status`
@@ -346,7 +346,7 @@ Category: projects
 cloudsync status file.txt
 
 # Git history (for any file type)
-cd ~/cloudsync-managed/documents
+cd ~/csync-managed/documents
 git log --oneline filename.txt
 
 # Git-Annex content history
@@ -413,7 +413,7 @@ CLOUDSYNC_VERBOSE=true cloudsync add problematic-file.txt
 rclone lsd onedrive:
 
 # Check Git-Annex remote status
-cd ~/cloudsync-managed
+cd ~/csync-managed
 git annex testremote onedrive
 
 # Check rclone configuration
@@ -423,11 +423,11 @@ rclone config show onedrive
 #### 3. Version History Missing
 ```bash
 # For Git files
-cd ~/cloudsync-managed/documents
+cd ~/csync-managed/documents
 git log filename.txt
 
 # For Git-Annex files
-cd ~/cloudsync-managed/projects
+cd ~/csync-managed/projects
 git log filename.bin         # Shows pointer history
 git annex log filename.bin   # Shows content history
 ```
@@ -529,7 +529,7 @@ echo 'HOOKS_DIRECTORY="/path/to/hooks"' >> config/managed-storage.conf
 ### Integration with Other Tools
 ```bash
 # Git hooks integration
-cp scripts/hooks/post-commit ~/cloudsync-managed/.git/hooks/
+cp scripts/hooks/post-commit ~/csync-managed/.git/hooks/
 
 # IDE integration
 ln -s /home/user/CloudSync/scripts/cloudsync-orchestrator.sh ~/bin/cloudsync
@@ -605,7 +605,7 @@ export CLOUDSYNC_DEBUG=true
 
 ### File System Structure
 ```
-~/cloudsync-managed/
+~/csync-managed/
 ├── .git/                    # Git repository
 ├── .git/annex/             # Git-Annex storage
 ├── .cloudsync/             # CloudSync metadata

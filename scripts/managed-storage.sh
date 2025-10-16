@@ -2,7 +2,7 @@
 
 # CloudSync Managed Storage
 # Git-based storage management with unified versioning
-# Creates and manages ~/cloudsync-managed/ with Git foundation
+# Creates and manages ~/csync-managed/ with Git foundation
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/../config/managed-storage.conf"
 LOG_FILE="${HOME}/.cloudsync/logs/managed-storage.log"
-MANAGED_DIR="${HOME}/cloudsync-managed"
+MANAGED_DIR="${HOME}/csync-managed"
 
 # Default configuration
 DEFAULT_REMOTE_NAME="onedrive"
@@ -130,7 +130,7 @@ EOF
     
     # Initialize Git-Annex
     log_managed "INFO" "Initializing Git-Annex"
-    git annex init "cloudsync-managed-$(hostname)"
+    git annex init "csync-managed-$(hostname)"
     
     # Configure Git-Annex remote
     if command -v rclone >/dev/null 2>&1; then
