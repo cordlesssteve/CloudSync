@@ -1,75 +1,21 @@
 # CloudSync - Current Project Status
-**Status:** ACTIVE
-**Last Updated:** 2025-10-16 13:29
+**Status:** SUPERSEDED
+**Last Updated:** 2025-10-16 12:00
 **Active Plan:** [ACTIVE_PLAN.md](./ACTIVE_PLAN.md)
 **Current Branch:** main
-**Project Focus:** Testing Infrastructure & Automation
-**Project Phase:** Production Operations - Test Implementation Complete
-**Previous Archive:** [docs/progress/2025-10/CURRENT_STATUS.2025-10-16_1329.md](./docs/progress/2025-10/CURRENT_STATUS.2025-10-16_1329.md)
+**Project Focus:** Script Standardization & Redundancy Analysis
+**Project Phase:** Production Operations - Script Consolidation
+**Previous Archive:** [docs/progress/2025-10/CURRENT_STATUS.2025-10-16_1200.md](./docs/progress/2025-10/CURRENT_STATUS.2025-10-16_1200.md)
 
-## 🎯 SESSION FOCUS: TESTING INFRASTRUCTURE IMPLEMENTATION (2025-10-16)
+## 🎯 NEW FEATURE: GIT BUNDLE SYNC SYSTEM
 
-**Comprehensive end-to-end testing infrastructure created** to verify CloudSync backup → bundle → upload → download → restore workflow with real OneDrive interaction.
+**CloudSync now includes git bundle sync** to dramatically reduce OneDrive API calls by syncing repositories as single bundle files instead of thousands of individual files. This addresses OneDrive rate limiting issues.
 
-## Today's Completed Work ✅ (2025-10-16 Session - Testing Infrastructure)
+## CURRENT SESSION: NAMING REFACTOR (2025-10-16)
 
-### 📊 **PART 1: NAMING REFACTOR - COMPLETE**
-- ✅ Renamed `cloudsync-managed` → `csync-managed` (38 files updated)
-- ✅ All scripts verified - zero syntax errors
-- ✅ Documentation updated (live and archived files)
-- ✅ Clear distinction: **cloudsync** = tool repo, **csync-managed** = data directory
-
-### 🧪 **PART 2: TESTING INFRASTRUCTURE - COMPLETE**
-
-**Created Comprehensive Testing Analysis:**
-- ✅ `TESTING_INFRASTRUCTURE_ANALYSIS.md` - Gap analysis (90% testing gap identified)
-- ✅ `TESTING_IMPLEMENTATION_GUIDE.md` - Practical implementation reference
-- ✅ `TESTING_WITH_LOGGING.md` - Architecture and logging strategy
-
-**Implemented Production-Ready Test System:**
-- ✅ `tests/logging.sh` - 600+ lines of reusable logging infrastructure
-  - Dual output: human-readable + JSON structured logs
-  - Automatic checksum tracking (SHA256 at every step)
-  - File operation logging with sizes and checksums
-  - Git repository statistics and integrity verification
-  - Step timing and metrics collection
-  - HTML report generation
-
-- ✅ `tests/integration/e2e-real-onedrive.test.sh` - 700+ lines of test code
-  - REAL OneDrive interaction (not mocked)
-  - 7-step complete workflow verification
-  - Automatic trap-based cleanup (deletes OneDrive test data)
-  - Full audit trail with checksums at each stage
-  - Verification gates (all must pass for success)
-
-- ✅ `docs/RUNNING_E2E_TESTS.md` - Complete execution guide
-  - Quick start command
-  - Step-by-step explanation
-  - Expected output examples
-  - Troubleshooting guide
-  - Success criteria checklist
-
-**Test Infrastructure Setup:**
-- ✅ Created `csync-tester` test user with proper permissions
-- ✅ Configured OneDrive access for test user
-- ✅ Created test runner wrapper (`run-e2e-test.sh`)
-- ✅ Set up passwordless sudo for automation
-- ✅ Fixed bash syntax errors in test script
-
-**7-Step Test Workflow:**
-1. Create fake test repository (multiple commits, branches, binary files)
-2. Bundle test repo (verify git bundle format)
-3. REAL upload to OneDrive (log rclone operations)
-4. REAL download as csync-tester (verify checksum integrity)
-5. Restore/unbundle (git fsck verification)
-6. Compare integrity (commits, branches, file structures)
-7. Final validation (ensure repo is readable)
-- Automatic cleanup: Delete OneDrive test data + local artifacts
-
-### ⏳ **IDENTIFIED: Automation Trigger Mechanism (Next Session)**
-- Test infrastructure complete and ready
-- Need to implement programmatic trigger (systemd service, cron, or direct su)
-- Goal: Enable CI/CD pipelines and auditing services to run tests without sudo
+**Renaming `csync-managed` → `csync-managed`** for clarity:
+- **cloudsync** = CloudSync repository (the full tool)
+- **csync-managed** = Managed storage directory (upload folder)
 
 ## What's Actually Done ✅ (ALL COMPLETED - PREVIOUS SESSIONS)
 - [x] Project structure created with proper directory organization
