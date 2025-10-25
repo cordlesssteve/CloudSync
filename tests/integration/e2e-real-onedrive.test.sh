@@ -39,7 +39,7 @@ run_as_csync_tester() {
         bash -c "$@"
     else
         # Different user, use sudo
-        sudo -u csync-tester -H bash -c "$@"
+        run_as_csync_tester "$@"
     fi
 }
 
@@ -292,7 +292,7 @@ STEP_START=$(date +%s.%N)
 
 log_event "INFO" "STEP_5" "Running: git clone $DOWNLOADED_BUNDLE"
 
-if sudo -u csync-tester -H bash -c "
+if run_as_csync_tester "
     set -euo pipefail
     cd '$DOWNLOAD_DIR'
     git clone test-repo.bundle restored-repo 2>&1 | tee -a '$TEST_LOG_FILE'
@@ -306,7 +306,7 @@ fi
 
 # Verify restored repository integrity
 log_event "INFO" "STEP_5" "Running git fsck on restored repository..."
-if sudo -u csync-tester -H bash -c "
+if run_as_csync_tester "
     git -C '$DOWNLOAD_DIR/restored-repo' fsck --full >> '$GIT_LOG' 2>&1
 " 2>&1; then
     log_event "SUCCESS" "STEP_5" "Restored repository integrity verified"
@@ -317,7 +317,7 @@ else
 fi
 
 # Get restored repository statistics
-sudo -u csync-tester -H bash -c "
+run_as_csync_tester "
     git -C '$DOWNLOAD_DIR/restored-repo' rev-list --all --count >> /tmp/restored-commits-${TEST_RUN_ID}.txt 2>&1
 " || echo "0" > /tmp/restored-commits-${TEST_RUN_ID}.txt
 
@@ -353,7 +353,7 @@ fi
 log_event "INFO" "STEP_6" "Comparing file structures..."
 diff -q \
     <(sort "$TEST_ARTIFACT_DIR/source-repo-listing.txt") \
-    <(sudo -u csync-tester sort "$TEST_ARTIFACT_DIR/restored-repo-listing.txt") \
+    <(sort "$TEST_ARTIFACT_DIR/restored-repo-listing.txt") \
     > "$TEST_ARTIFACT_DIR/file-structure-diff.txt" 2>&1 || true
 
 if [[ ! -s "$TEST_ARTIFACT_DIR/file-structure-diff.txt" ]]; then
@@ -373,7 +373,7 @@ log_event "INFO" "STEP_7" "Performing final validation..."
 STEP_START=$(date +%s.%N)
 
 # Verify git can read the restored repository
-if sudo -u csync-tester -H bash -c "
+if run_as_csync_tester "
     git -C '$DOWNLOAD_DIR/restored-repo' log --oneline | head -5 >> '$GIT_LOG' 2>&1
 " 2>&1; then
     log_event "SUCCESS" "STEP_7" "Restored repository is readable"
@@ -385,7 +385,7 @@ fi
 
 # Verify branches exist
 ORIGINAL_BRANCHES=$(git -C "$TEST_WORK_DIR/source-repo" branch -a | wc -l)
-RESTORED_BRANCHES=$(sudo -u csync-tester -H bash -c "git -C '$DOWNLOAD_DIR/restored-repo' branch -a | wc -l" 2>/dev/null || echo "0")
+RESTORED_BRANCHES=$(run_as_csync_tester "git -C '$DOWNLOAD_DIR/restored-repo' branch -a | wc -l" 2>/dev/null || echo "0")
 
 log_metric "BRANCHES_ORIGINAL" "$ORIGINAL_BRANCHES"
 log_metric "BRANCHES_RESTORED" "$RESTORED_BRANCHES"
