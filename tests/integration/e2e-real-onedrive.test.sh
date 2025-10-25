@@ -257,8 +257,8 @@ if [[ ! -f "$DOWNLOADED_BUNDLE" ]]; then
 fi
 
 # Get download statistics
-DOWNLOAD_SIZE=$(sudo -u csync-tester stat -c%s "$DOWNLOADED_BUNDLE" 2>/dev/null || stat -f%z "$DOWNLOADED_BUNDLE" 2>/dev/null || echo "0")
-DOWNLOAD_SHA=$(sudo -u csync-tester bash -c "sha256sum '$DOWNLOADED_BUNDLE' | awk '{print \$1}'" 2>/dev/null || echo "")
+DOWNLOAD_SIZE=$(stat -c%s "$DOWNLOADED_BUNDLE" 2>/dev/null || stat -f%z "$DOWNLOADED_BUNDLE" 2>/dev/null || echo "0")
+DOWNLOAD_SHA=$(sha256sum "$DOWNLOADED_BUNDLE" | awk '{print $1}' 2>/dev/null || echo "")
 
 log_file_operation "download" "$DOWNLOADED_BUNDLE" "$DOWNLOAD_SIZE" "$DOWNLOAD_SHA"
 log_metric "DOWNLOAD_SIZE_BYTES" "$DOWNLOAD_SIZE"
