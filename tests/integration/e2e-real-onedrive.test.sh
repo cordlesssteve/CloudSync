@@ -110,10 +110,31 @@ log_directory_structure "$TEST_WORK_DIR/source-repo" \
     "Source Repository"
 
 # Calculate source repository checksum
-source_repo_checksum=$(find "$TEST_WORK_DIR/source-repo" -type f ! -path '*/.git/*' -exec sha256sum {} + | sha256sum | awk '{print $1}' || echo "checksum-failed")
+log_event "DEBUG" "STEP_1" "Starting checksum calculation for $TEST_WORK_DIR/source-repo"
+log_event "DEBUG" "STEP_1" "Directory exists: $(test -d "$TEST_WORK_DIR/source-repo" && echo "YES" || echo "NO")"
+log_event "DEBUG" "STEP_1" "Running find command..."
+
+# Split the pipeline to identify where it fails
+if ! find "$TEST_WORK_DIR/source-repo" -type f ! -path '*/.git/*' -print0 > "$TEST_ARTIFACT_DIR/checksum-files.txt" 2>&1; then
+    log_event "ERROR" "STEP_1" "find command failed"
+    source_repo_checksum="find-failed"
+elif ! xargs -0 sha256sum < "$TEST_ARTIFACT_DIR/checksum-files.txt" > "$TEST_ARTIFACT_DIR/checksum-hashes.txt" 2>&1; then
+    log_event "ERROR" "STEP_1" "sha256sum command failed"
+    source_repo_checksum="sha256sum-failed"
+elif ! sha256sum < "$TEST_ARTIFACT_DIR/checksum-hashes.txt" > "$TEST_ARTIFACT_DIR/checksum-final.txt" 2>&1; then
+    log_event "ERROR" "STEP_1" "final checksum failed"
+    source_repo_checksum="checksum-failed"
+else
+    source_repo_checksum=$(awk '{print $1}' < "$TEST_ARTIFACT_DIR/checksum-final.txt")
+    log_event "DEBUG" "STEP_1" "Checksum calculated successfully: ${source_repo_checksum:0:16}..."
+fi
+
+log_event "DEBUG" "STEP_1" "About to log metric..."
 log_metric "SOURCE_REPO_CHECKSUM" "$source_repo_checksum"
+log_event "DEBUG" "STEP_1" "Metric logged, about to complete step..."
 
 log_step_complete "STEP_1_CREATE_REPO" "SUCCESS" "$STEP_START"
+log_event "DEBUG" "STEP_1" "Step completed successfully"
 
 # ============================================================================
 # STEP 2: Create Bundle
