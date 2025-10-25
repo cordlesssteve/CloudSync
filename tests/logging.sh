@@ -125,6 +125,8 @@ log_metric() {
 
     # Track for summary
     TEST_METRICS+=("$metric_name=$value $unit")
+
+    return 0
 }
 
 # Log file operation with checksums and sizes
@@ -151,6 +153,8 @@ log_file_operation() {
         --arg size "$size" \
         --arg checksum "$checksum" \
         '{timestamp: $timestamp, type: "file_operation", operation: $operation, filepath: $filepath, size_bytes: ($size | tonumber), checksum: $checksum}' >> "$TEST_JSON_LOG"
+
+    return 0
 }
 
 # Log step completion with timing and status
@@ -181,6 +185,8 @@ log_step_complete() {
         --arg status "$status" \
         --arg duration "$duration" \
         '{timestamp: $timestamp, type: "step_complete", step: $step, status: $status, duration_seconds: ($duration | tonumber)}' >> "$TEST_JSON_LOG"
+
+    return 0
 }
 
 # ============================================================================
