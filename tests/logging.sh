@@ -169,10 +169,10 @@ log_step_complete() {
     local timestamp
     timestamp=$(date -Iseconds)
 
-    ((TEST_STEPS_TOTAL++))
+    : $((TEST_STEPS_TOTAL++))
     case "$status" in
-        SUCCESS) ((TEST_STEPS_SUCCESS++)) ;;
-        FAILED)  ((TEST_STEPS_FAILED++)) ;;
+        SUCCESS) : $((TEST_STEPS_SUCCESS++)) ;;
+        FAILED)  : $((TEST_STEPS_FAILED++)) ;;
     esac
 
     local formatted="[$timestamp] [STEP] [$status] $step_name completed (${duration}s)"
