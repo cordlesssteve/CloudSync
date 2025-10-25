@@ -31,6 +31,18 @@ TEST_WORK_DIR="/tmp/cloudsync-e2e-${TEST_RUN_ID}"
 # Step timing
 OVERALL_START=$(date +%s.%N)
 
+# Helper function: Run command as csync-tester (with or without sudo depending on current user)
+run_as_csync_tester() {
+    local CURRENT_USER=$(whoami)
+    if [[ "$CURRENT_USER" == "csync-tester" ]]; then
+        # Already csync-tester, run directly
+        bash -c "$@"
+    else
+        # Different user, use sudo
+        sudo -u csync-tester -H bash -c "$@"
+    fi
+}
+
 # Cleanup on exit
 cleanup_handler() {
     log_event "INFO" "CLEANUP" "Trap handler activated..."
@@ -218,15 +230,17 @@ STEP_START=$(date +%s.%N)
 
 log_event "INFO" "STEP_4" "Creating download directory for csync-tester..."
 
-# Run download as csync-tester user
-if sudo -u csync-tester -H bash -c "
+# Download as csync-tester user
+DOWNLOAD_DIR="/tmp/csync-tester-download-${TEST_RUN_ID}"
+
+if run_as_csync_tester "
     set -euo pipefail
-    mkdir -p /tmp/csync-tester-download-${TEST_RUN_ID}
-    cd /tmp/csync-tester-download-${TEST_RUN_ID}
+    mkdir -p '$DOWNLOAD_DIR'
+    cd '$DOWNLOAD_DIR'
     rclone sync 'onedrive:$ONEDRIVE_TEST_PATH' .
     ls -lh >> '$TEST_LOG_FILE' 2>&1
 " 2>&1 | tee -a "$TEST_LOG_FILE"; then
-    log_event "SUCCESS" "STEP_4" "Bundle downloaded by csync-tester"
+    log_event "SUCCESS" "STEP_4" "Bundle downloaded"
 else
     log_event "ERROR" "STEP_4" "Bundle download failed"
     log_step_complete "STEP_4_DOWNLOAD" "FAILED" "$STEP_START"
@@ -234,7 +248,6 @@ else
 fi
 
 # Verify downloaded file
-DOWNLOAD_DIR="/tmp/csync-tester-download-${TEST_RUN_ID}"
 DOWNLOADED_BUNDLE="$DOWNLOAD_DIR/test-repo.bundle"
 
 if [[ ! -f "$DOWNLOADED_BUNDLE" ]]; then
